@@ -3,6 +3,13 @@ import type { AuthResponse, LoginCredentials, RegisterCredentials, UpdateProfile
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+// Extend axios config type to include metadata
+interface ExtendedAxiosRequestConfig extends any {
+  metadata?: {
+    startTime: Date;
+  };
+}
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -10,9 +17,12 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and monitor performance
 api.interceptors.request.use(
-  (config) => {
+  (config: ExtendedAxiosRequestConfig) => {
+    // Add timestamp for performance monitoring
+    config.metadata = { startTime: new Date() };
+    
     // Get token from Zustand store instead of localStorage
     const authStorage = localStorage.getItem('auth-storage');
     if (authStorage) {
@@ -25,17 +35,41 @@ api.interceptors.request.use(
         console.error('Error parsing auth storage:', error);
       }
     }
+    
+    console.log(`[API] ${config.method?.toUpperCase()} ${config.url} - Request started`);
     return config;
   },
   (error) => {
+    console.error('[API] Request error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor to handle auth errors
+// Response interceptor to handle auth errors and monitor performance
 api.interceptors.response.use(
-  (response) => response,
+  (response: any) => {
+    // Calculate response time
+    const endTime = new Date();
+    const startTime = response.config.metadata?.startTime;
+    const duration = startTime ? endTime.getTime() - startTime.getTime() : 0;
+    
+    console.log(`[API] ${response.config.method?.toUpperCase()} ${response.config.url} - Success (${duration}ms)`);
+    
+    // Log slow responses (>1000ms)
+    if (duration > 1000) {
+      console.warn(`[API] Slow response detected: ${response.config.url} took ${duration}ms`);
+    }
+    
+    return response;
+  },
   (error) => {
+    // Calculate response time for errors too
+    const endTime = new Date();
+    const startTime = error.config?.metadata?.startTime;
+    const duration = startTime ? endTime.getTime() - startTime.getTime() : 0;
+    
+    console.error(`[API] ${error.config?.method?.toUpperCase()} ${error.config?.url} - Error (${duration}ms):`, error.response?.status, error.response?.data);
+    
     if (error.response?.status === 401) {
       // Clear auth storage instead of localStorage directly
       localStorage.removeItem('auth-storage');

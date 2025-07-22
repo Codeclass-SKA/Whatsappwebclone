@@ -9,6 +9,9 @@ export interface CreateChatData {
 
 export interface SendMessageData {
   content: string;
+  message_type?: 'text' | 'image' | 'file' | 'voice' | 'document' | 'audio';
+  file_url?: string;
+  reply_to_id?: number;
 }
 
 class ChatService {

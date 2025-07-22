@@ -29,40 +29,16 @@ const Chat: React.FC = () => {
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [messageToForward, setMessageToForward] = useState<Message | null>(null);
-  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null); // State for the message being replied to
   const [unreadCount, setUnreadCount] = useState(0);
   const [lastReadMessageId, setLastReadMessageId] = useState<number | null>(null);
-  const [replyingTo, setReplyingTo] = useState<Message | null>(null); // State for the message being replied to
 
   const handleNewMessage = (newMessage: Message) => {
-    console.log('[Chat] Received new message:', newMessage);
-    
-    // Only add message if it's not from current user (to avoid duplicates)
-    if (newMessage.sender_id !== user?.id) {
-      setMessages(prev => {
-        // Check if message already exists
-        const exists = prev.find(msg => msg.id === newMessage.id);
-        if (exists) return prev;
-        
-        return [...prev, newMessage];
-      });
-      
-      // Update unread count if user is not at bottom
-      if (selectedChat && newMessage.chat_id === selectedChat.id) {
-        setUnreadCount(prev => prev + 1);
-      }
-      
-      // Update chat list with new last message
+    if (newMessage.chat_id === selectedChat?.id) {
+      setMessages(prev => [...prev, newMessage]);
       setChats(prev => prev.map(chat => 
         chat.id === newMessage.chat_id 
-          ? { 
-              ...chat, 
-              last_message: { 
-                content: newMessage.content, 
-                user_name: newMessage.user.name, 
-                created_at: newMessage.created_at 
-              } 
-            }
+          ? { ...chat, last_message: newMessage }
           : chat
       ));
     }
@@ -70,13 +46,11 @@ const Chat: React.FC = () => {
 
   // Handle real-time reaction updates
   const handleReactionAdded = (reaction: any) => {
-    console.log('[Chat] Reaction added:', reaction);
     // Trigger a re-load of reactions for the specific message
     // This will be handled by the existing loadReactions logic in MessageList
   };
 
   const handleReactionRemoved = (reactionData: any) => {
-    console.log('[Chat] Reaction removed:', reactionData);
     // Trigger a re-load of reactions for the specific message
     // This will be handled by the existing loadReactions logic in MessageList
   };
@@ -113,7 +87,7 @@ const Chat: React.FC = () => {
   useMessagePolling({
     chatId: selectedChat?.id,
     onMessageReceived: handleNewMessage,
-    pollingInterval: 5000 // Poll every 5 seconds
+    pollingInterval: 3000 // Poll every 3 seconds to reduce server load
   });
 
   // Keyboard shortcuts
@@ -134,14 +108,14 @@ const Chat: React.FC = () => {
       }
       
       // Escape to clear reply
-      if (event.key === 'Escape' && replyToMessage) {
-        setReplyToMessage(null);
+      if (event.key === 'Escape' && replyingTo) {
+        setReplyingTo(null);
       }
     };
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [replyToMessage, selectedChat]);
+  }, [replyingTo, selectedChat]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -173,9 +147,7 @@ const Chat: React.FC = () => {
   const loadMessages = async (chatId: number) => {
     try {
       setLoading(true);
-      console.log('[Chat] Loading messages for chat:', chatId);
       const messageList = await chatService.getMessages(chatId);
-      console.log('[Chat] Messages loaded:', messageList);
       setMessages(messageList);
     } catch (error) {
       console.error('[Chat] Failed to load messages:', error);
@@ -186,20 +158,24 @@ const Chat: React.FC = () => {
 
   const handleChatSelect = (chat: Chat) => {
     setSelectedChat(chat);
-    setReplyToMessage(null); // Clear reply when switching chats
+    setReplyingTo(null); // Clear reply when switching chats
   };
 
   const handleSendMessage = async (content: string) => {
-    if (!selectedChat) return;
+    if (!content.trim() || !selectedChat || sending) return;
+
+    setSending(true);
 
     try {
-      setSending(true);
-      console.log('[Chat] Sending message:', { content, chatId: selectedChat.id });
-      
-      const payload = {
+      // Create payload with only necessary fields
+      const payload: any = {
         content,
-        reply_to_id: replyingTo ? replyingTo.id : undefined,
       };
+
+      // Only add reply_to_id if we're actually replying to a message
+      if (replyingTo && replyingTo.id) {
+        payload.reply_to_id = replyingTo.id;
+      }
 
       const newMessage: Message = await chatService.sendMessage(selectedChat.id, payload);
       
@@ -218,14 +194,9 @@ const Chat: React.FC = () => {
             : chat
         )
       );
-      
-      // Clear reply after sending
-      setReplyToMessage(null);
-      
-      console.log('[Chat] Chat list updated with new message');
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Chat] Failed to send message:', error);
-      alert('Failed to send message. Please try again.');
+      alert(`Failed to send message: ${error.response?.data?.message || error.message || 'Unknown error'}`);
     } finally {
       setSending(false);
     }
@@ -233,9 +204,7 @@ const Chat: React.FC = () => {
 
   const handleCreateChat = async (type: 'private' | 'group', participantIds: number[], name?: string) => {
     try {
-      console.log('[Chat] Creating new chat:', { type, participantIds, name });
       const newChat = await chatService.createChat({ type, participant_ids: participantIds, name });
-      console.log('[Chat] New chat created:', newChat);
       
       setChats(prev => [newChat, ...prev]);
       setSelectedChat(newChat);
@@ -247,7 +216,7 @@ const Chat: React.FC = () => {
   };
 
   const handleReply = (message: Message) => {
-    setReplyToMessage(message);
+    setReplyingTo(message);
   };
 
   const handleForward = (message: Message) => {
@@ -288,7 +257,6 @@ const Chat: React.FC = () => {
   };
 
   const handleStartReply = (message: Message) => {
-    console.log('[Chat] Starting reply to message:', message);
     setReplyingTo(message);
   };
 
@@ -414,29 +382,6 @@ const Chat: React.FC = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Reply indicator */}
-              {replyToMessage && (
-                <div className="p-3 bg-gray-50 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                      </svg>
-                      <span className="text-sm text-gray-600">Replying to {replyToMessage.user.name}</span>
-                    </div>
-                    <button
-                      onClick={() => setReplyToMessage(null)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1 truncate">{replyToMessage.content}</p>
-                </div>
-              )}
 
               {/* Messages */}
               <div className="flex-1 bg-white">

@@ -26,9 +26,7 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
   const loadUsers = async () => {
     try {
       setLoading(true);
-      console.log('[NewChatModal] Loading users...');
       const userList = await userService.getUsers();
-      console.log('[NewChatModal] Users loaded:', userList);
       setUsers(userList);
     } catch (error) {
       console.error('[NewChatModal] Failed to load users:', error);

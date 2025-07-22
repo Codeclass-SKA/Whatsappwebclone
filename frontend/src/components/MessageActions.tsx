@@ -9,7 +9,7 @@ interface MessageActionsProps {
   onReply: (message: Message) => void;
   onForward: (message: Message) => void;
   onDelete: (messageId: number, deleteType: 'for_me' | 'for_everyone') => void;
-  onReact: (emoji: string) => void;
+  onReact: (messageId: number, emoji: string) => void;
 }
 
 const MessageActions: React.FC<MessageActionsProps> = ({
@@ -24,6 +24,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [pickerPosition, setPickerPosition] = useState<'top' | 'bottom'>('bottom');
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isOwnMessage = message.sender_id === user?.id;
@@ -40,15 +41,21 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false);
-        setShowDeleteConfirm(false);
-        setShowReactionPicker(false);
+        // Add delay for reaction picker to prevent immediate closing
+        if (showReactionPicker) {
+          setTimeout(() => {
+            setShowReactionPicker(false);
+          }, 200); // Increased delay
+        } else {
+          setShowMenu(false);
+          setShowDeleteConfirm(false);
+        }
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [showReactionPicker]);
 
   const handleDelete = (deleteType: 'for_me' | 'for_everyone') => {
     onDelete(message.id, deleteType);
@@ -57,15 +64,39 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   };
 
   const handleReactionSelect = (emoji: string) => {
-    onReact(emoji);
-    setShowReactionPicker(false);
-    setShowMenu(false);
+    onReact(message.id, emoji);
+    // Add delay before closing to prevent immediate closure
+    setTimeout(() => {
+      setShowReactionPicker(false);
+      setShowMenu(false);
+    }, 100);
   };
 
   const handleReactClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent click from bubbling up and closing the menu immediately
     setShowMenu(false);
-    setShowReactionPicker(true);
+    
+    // Add small delay to prevent immediate opening/closing
+    setTimeout(() => {
+      // Calculate position for reaction picker using menuRef
+      if (menuRef.current) {
+        const rect = menuRef.current.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        const spaceBelow = windowHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        
+        // If not enough space below but enough above, show above
+        if (spaceBelow < 200 && spaceAbove > 200) {
+          setPickerPosition('top');
+        } else {
+          setPickerPosition('bottom');
+        }
+      } else {
+        setPickerPosition('bottom');
+      }
+      
+      setShowReactionPicker(true);
+    }, 50);
   };
 
   // Only show the action button if the message is active
@@ -84,13 +115,11 @@ const MessageActions: React.FC<MessageActionsProps> = ({
         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
         title="More actions"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-        </svg>
+        <span className="text-lg">&#8942;</span>
       </button>
 
-      {/* Main container for popups (menu, delete confirm, reaction picker) */}
-      <div className="absolute bottom-full right-0 mb-2 z-10">
+      {/* Main container for popups (menu, delete confirm) */}
+      <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 z-10`}>
         {/* Actions menu */}
         {showMenu && !showDeleteConfirm && (
           <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-max">
@@ -101,7 +130,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
               }}
               className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+              <span className="text-lg">↩️</span>
               Reply
             </button>
 
@@ -112,7 +141,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
               }}
               className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+              <span className="text-lg">↪️</span>
               Forward
             </button>
 
@@ -120,7 +149,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
               onClick={handleReactClick}
               className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span className="text-lg">😊</span>
               React
             </button>
 
@@ -129,7 +158,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
                 onClick={() => setShowDeleteConfirm(true)}
                 className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                <span className="text-lg">🗑️</span>
                 Delete
               </button>
             )}
@@ -149,12 +178,13 @@ const MessageActions: React.FC<MessageActionsProps> = ({
         )}
       </div>
 
-      {/* Reaction picker - Renders separately */}
+      {/* Separate container for reaction picker */}
       {showReactionPicker && (
-         <div className="absolute bottom-full right-0 mb-2 z-50 reaction-picker-container">
+        <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 z-20`}>
           <ReactionPicker
             onSelect={handleReactionSelect}
             onClose={() => setShowReactionPicker(false)}
+            targetElement={menuRef.current}
           />
         </div>
       )}
@@ -162,4 +192,4 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   );
 };
 
-export default MessageActions; 
+export default MessageActions;

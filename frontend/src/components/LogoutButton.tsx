@@ -8,14 +8,10 @@ const LogoutButton: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      console.log('[LogoutButton] Logout initiated');
       await logout();
-      console.log('[LogoutButton] Logout completed');
-      navigate('/login', { replace: true });
+      navigate('/login');
     } catch (error) {
       console.error('[LogoutButton] Logout error:', error);
-      // Even if logout fails, redirect to login
-      navigate('/login', { replace: true });
     }
   };
 

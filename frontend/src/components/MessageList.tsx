@@ -90,8 +90,6 @@ const MessageList: React.FC<MessageListProps> = ({
   }, []);
 
   useEffect(() => {
-    console.log('[MessageList] Messages changed:', messages);
-    
     // Auto-scroll to bottom on first load or when user is near bottom
     if (messages.length > 0) {
       if (isNearBottom || autoScroll) {
@@ -103,17 +101,16 @@ const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages, isNearBottom, autoScroll]);
 
-  // Load reactions for messages
+  // Load reactions for all messages
   useEffect(() => {
     const loadReactions = async () => {
-      console.log('[MessageList] Loading reactions for', messages.length, 'messages');
-      const reactionsMap: Record<number, MessageReaction[]> = {};
+      if (messages.length === 0) return;
+      
+      const reactionsMap: { [key: number]: any[] } = {};
       
       for (const message of messages) {
         try {
-          console.log('[MessageList] Loading reactions for message ID:', message.id);
           const messageReactions = await getMessageReactions(message.id);
-          console.log('[MessageList] Reactions for message', message.id, ':', messageReactions);
           reactionsMap[message.id] = messageReactions;
         } catch (error) {
           console.error(`Failed to load reactions for message ${message.id}:`, error);
@@ -121,22 +118,19 @@ const MessageList: React.FC<MessageListProps> = ({
         }
       }
       
-      console.log('[MessageList] Final reactions map:', reactionsMap);
       setReactions(reactionsMap);
     };
 
-    if (messages.length > 0) {
-      loadReactions();
-      
-      // Set up periodic refresh of reactions every 1 second for real-time feel
-      const interval = setInterval(loadReactions, 1000);
-      return () => clearInterval(interval);
-    }
+    loadReactions();
   }, [messages]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
   };
 
   const isOwnMessage = (message: Message) => {
@@ -145,9 +139,7 @@ const MessageList: React.FC<MessageListProps> = ({
 
   const handleAddReaction = async (messageId: number, emoji: string) => {
     try {
-      console.log('[MessageList] Adding reaction:', emoji, 'to message:', messageId);
       const newReaction = await addReaction(messageId, emoji);
-      console.log('[MessageList] Reaction added successfully:', newReaction);
       
       // Update local state
       setReactions(prev => {
@@ -155,7 +147,6 @@ const MessageList: React.FC<MessageListProps> = ({
           ...prev,
           [messageId]: [...(prev[messageId] || []), newReaction]
         };
-        console.log('[MessageList] Updated reactions state:', updated);
         return updated;
       });
     } catch (error) {
@@ -202,8 +193,6 @@ const MessageList: React.FC<MessageListProps> = ({
     setAutoScroll(true);
   };
 
-  console.log('[MessageList] Rendering with messages:', messages.length, 'loading:', loading);
-
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -231,115 +220,78 @@ const MessageList: React.FC<MessageListProps> = ({
         onScroll={handleScroll}
       >
         {messages.map((message) => {
-          console.log('[MessageList] Rendering message:', message);
           const isOwn = isOwnMessage(message);
           const messageReactions = reactions[message.id] || [];
           const isActive = activeMessageId === message.id;
-          
-          console.log('[MessageList] Message', message.id, 'reactions:', messageReactions);
           
           return (
             <div
               key={message.id}
               className={`flex ${isOwn ? 'justify-end' : 'justify-start'} message-container`}
             >
-              <div className="max-w-xs lg:max-w-md">
-                {/* Reply message */}
-                {message.reply_to && (
-                  <ReplyMessage 
-                    replyTo={message.reply_to} 
-                    isOwnMessage={isOwn}
-                  />
-                )}
-                
-                {/* Main message */}
+              <div className="relative group">
+                {/* Message Bubble */}
                 <div
-                  className={`px-4 py-3 rounded-2xl shadow-lg cursor-pointer transition-all duration-200 ${
-                    isOwn
-                      ? `bg-gradient-to-r from-green-500 to-green-600 text-white ${
-                          isActive ? 'ring-2 ring-green-300 ring-opacity-50' : ''
-                        }`
-                      : `bg-white text-gray-800 ${
-                          isActive ? 'ring-2 ring-gray-300 ring-opacity-50' : ''
-                        }`
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    isOwn 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-gray-200 text-gray-800'
                   }`}
                   onClick={() => handleMessageTap(message.id)}
                 >
-                  {!isOwn && (
-                    <div className="flex items-center mb-1">
-                      <Avatar
-                        src={message.user.avatar}
-                        alt={message.user.name}
-                        size="sm"
-                        className="mr-2"
-                      />
-                      <span className="text-xs font-medium text-gray-600">
-                        {message.user.name}
-                      </span>
+                  {/* Reply Preview */}
+                  {message.reply_to && (
+                    <div className={`text-xs mb-1 ${isOwn ? 'text-green-100' : 'text-gray-500'}`}>
+                      <div className="font-medium">Replying to:</div>
+                      <div className="truncate">{message.reply_to.content}</div>
                     </div>
                   )}
                   
-                  <p className="text-sm break-words">{message.content}</p>
+                  {/* Message Content */}
+                  <div className="break-words">{message.content}</div>
                   
-                  <div className={`text-xs mt-1 ${
-                    isOwn ? 'text-green-100' : 'text-gray-500'
-                  }`}>
+                  {/* Timestamp */}
+                  <div className={`text-xs mt-1 ${isOwn ? 'text-green-100' : 'text-gray-500'}`}>
                     {formatTime(message.created_at)}
                   </div>
                 </div>
 
-                {/* Message reactions - always visible if exists */}
-                {(() => {
-                  console.log('[MessageList] Checking reactions for message', message.id, ':', messageReactions.length, 'reactions');
-                  return messageReactions.length > 0;
-                })() && (
-                  <div className="mt-1">
-                    <MessageReactions
-                      messageId={message.id}
-                      reactions={messageReactions}
-                      onAddReaction={(emoji) => handleAddReaction(message.id, emoji)}
-                      onRemoveReaction={(reactionId) => handleRemoveReaction(message.id, reactionId)}
-                      onUpdateReaction={(reactionId, emoji) => handleUpdateReaction(message.id, reactionId, emoji)}
-                    />
-                  </div>
-                )}
+                {/* Message Actions */}
+                <MessageActions
+                  message={message}
+                  isActive={isActive}
+                  onReply={onReply || (() => {})}
+                  onForward={onForward || (() => {})}
+                  onDelete={handleDeleteMessage}
+                  onReact={handleAddReaction}
+                />
 
-                {/* Message actions - always rendered, visibility controlled internally */}
-                <div className="mt-1 transition-opacity duration-200">
-                  <MessageActions
-                    message={message}
-                    isActive={isActive}
-                    onReply={onReply || (() => {})}
-                    onForward={onForward || (() => {})}
-                    onDelete={handleDeleteMessage}
-                    onReact={(emoji) => handleAddReaction(message.id, emoji)}
+                {/* Reactions */}
+                {messageReactions.length > 0 && (
+                  <MessageReactions
+                    reactions={messageReactions}
+                    onRemoveReaction={handleRemoveReaction}
+                    onUpdateReaction={handleUpdateReaction}
+                    messageId={message.id}
                   />
-                </div>
+                )}
               </div>
             </div>
           );
         })}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Scroll to Bottom Button */}
-      {showScrollButton && (
+      {!autoScroll && (
         <button
           onClick={handleScrollToBottom}
-          className="absolute bottom-4 right-4 w-12 h-12 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 transform hover:scale-110 z-10 flex items-center justify-center"
+          className="absolute bottom-4 right-4 bg-green-500 text-white p-2 rounded-full shadow-lg hover:bg-green-600 transition-colors"
           title="Scroll to bottom"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
           </svg>
         </button>
-      )}
-
-      {/* New Message Indicator */}
-      {!isNearBottom && messages.length > 0 && (
-        <div className="absolute bottom-16 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-xs shadow-lg z-10 animate-pulse">
-          New messages
-        </div>
       )}
     </div>
   );

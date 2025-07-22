@@ -3,7 +3,9 @@
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
-    "types": ["jest", "@testing-library/jest-dom"]
+    "types": ["jest", "@testing-library/jest-dom"],
+    "lib": ["ES2015", "DOM"],
+    "esModuleInterop": true
   },
   "include": ["src"]
 }
