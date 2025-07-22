@@ -1,0 +1,43 @@
+{
+  "name": "whatsapp-clone",
+  "version": "1.0.0",
+  "description": "A modern, real-time messaging application built with React.js, TypeScript, and Laravel 11",
+  "author": "Riska Abdullah",
+  "license": "MIT",
+  "keywords": [
+    "whatsapp",
+    "clone",
+    "messaging",
+    "react",
+    "laravel",
+    "typescript",
+    "real-time",
+    "chat"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/riskaabdullah/whatsapp-clone.git"
+  },
+  "bugs": {
+    "url": "https://github.com/riskaabdullah/whatsapp-clone/issues"
+  },
+  "homepage": "https://github.com/riskaabdullah/whatsapp-clone#readme",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && php artisan serve --host=127.0.0.1 --port=8000",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && php artisan test",
+    "test:frontend": "cd frontend && npm test",
+    "install:all": "npm install && cd backend && composer install && cd ../frontend && npm install",
+    "setup": "npm run install:all && cd backend && php artisan migrate && php artisan db:seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+} 
