@@ -36,7 +36,7 @@ A modern, real-time messaging application built with React.js, TypeScript, and L
 - **Axios** - HTTP client for API calls
 
 ### Backend
-- **Laravel 11** - Modern PHP framework
+- **Laravel 12** - Modern PHP framework
 - **SQLite** - Lightweight database (development)
 - **MySQL/PostgreSQL** - Production database ready
 - **JWT Authentication** - Secure token-based auth
