@@ -124,4 +124,9 @@ Thumbs.db
 *.backup
 
 # Local configuration
-config/local.php 
+config/local.php
+
+# Development tools
+.specstory/
+.cursor/
+.cursorindexingignore 
