@@ -55,7 +55,7 @@ A modern, real-time messaging application built with React.js, TypeScript, and L
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Codeclass-SKA/Whatsappwebclone.git whatsapp-clone
    cd whatsapp-clone/backend
    ```
 
@@ -217,8 +217,8 @@ This project is licensed under the MIT License.
 ## 👨‍💻 Author
 
 **Riska Abdullah**
-- Email: [your-email@example.com]
-- GitHub: [your-github-username]
+- Email: alternative.xen@gmail.com
+- GitHub: machineska
 
 ## 🙏 Acknowledgments
 
