@@ -1,6 +1,6 @@
 # WhatsApp Clone
 
-A modern, real-time messaging application built with React.js, TypeScript, and Laravel 11.
+A modern, real-time messaging application built with React.js, TypeScript, and Laravel 12.
 
 ## 🚀 Features
 
