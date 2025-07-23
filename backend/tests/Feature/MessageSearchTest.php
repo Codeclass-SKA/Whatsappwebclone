@@ -208,7 +208,7 @@ class MessageSearchTest extends TestCase
     public function search_query_has_minimum_length()
     {
         $response = $this->actingAs($this->user)
-            ->getJson('/api/messages/search?q=ab');
+            ->getJson('/api/messages/search?q=a');
 
         $response->assertStatus(422);
     }
