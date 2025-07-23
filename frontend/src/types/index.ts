@@ -19,10 +19,15 @@ export interface Chat {
   created_by: number;
   participants: User[];
   last_message?: {
+    id: number;
     content: string;
-    user_name: string;
+    type: 'text' | 'image' | 'file' | 'voice' | 'document' | 'audio';
     created_at: string;
-  };
+    user: User;
+  } | null;
+  is_archived: boolean;
+  is_muted: boolean;
+  is_pinned: boolean;
   created_at: string;
   updated_at: string;
 }

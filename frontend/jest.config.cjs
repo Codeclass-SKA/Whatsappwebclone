@@ -7,14 +7,18 @@ module.exports = {
     '^.+\\.(ts|tsx)$': [
       'ts-jest',
       {
-        tsconfig: {
-          jsx: 'react-jsx',
-          esModuleInterop: true,
-        },
+        tsconfig: 'tsconfig.test.json',
       },
     ],
   },
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+  },
+  globals: {
+    'import.meta': {
+      env: {
+        VITE_API_URL: '/api',
+      },
+    },
   },
 }; 

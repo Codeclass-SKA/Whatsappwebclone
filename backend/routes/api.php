@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ChatArchiveController;
 use App\Http\Controllers\Api\ChatMuteController;
 use App\Http\Controllers\Api\ChatPinController;
 use App\Http\Controllers\Api\ChatExportController;
+use App\Http\Controllers\Api\TypingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -115,4 +116,8 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Message delete routes
     Route::delete('/messages/{message}', [MessageDeleteController::class, 'destroy']);
+    
+    // Typing indicator routes
+    Route::post('/chats/{chat}/typing/start', [TypingController::class, 'startTyping']);
+    Route::post('/chats/{chat}/typing/stop', [TypingController::class, 'stopTyping']);
 }); 
