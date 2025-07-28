@@ -16,13 +16,15 @@ class UserOnlineStatus implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public $user;
+    public $isOnline;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(User $user)
+    public function __construct(User $user, bool $isOnline)
     {
         $this->user = $user;
+        $this->isOnline = $isOnline;
     }
 
     /**
@@ -33,28 +35,21 @@ class UserOnlineStatus implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new Channel('user-status'),
+            new PresenceChannel('online-status')
         ];
     }
 
     /**
      * Get the data to broadcast.
+     *
+     * @return array<string, mixed>
      */
     public function broadcastWith(): array
     {
         return [
             'user_id' => $this->user->id,
-            'name' => $this->user->name,
-            'is_online' => $this->user->is_online,
-            'last_seen' => $this->user->last_seen,
+            'is_online' => $this->isOnline,
+            'last_seen' => $this->user->last_seen
         ];
     }
-
-    /**
-     * The event's broadcast name.
-     */
-    public function broadcastAs(): string
-    {
-        return 'user.status';
-    }
-} 
+}

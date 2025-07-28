@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
+import '../styles/ReactionPicker.css';
 
 interface ReactionPickerProps {
   onSelect: (emoji: string) => void;
   onClose: () => void;
+  targetElement?: HTMLElement | null;
 }
 
-const ReactionPicker: React.FC<ReactionPickerProps> = ({ onSelect, onClose }) => {
+const ReactionPicker: React.FC<ReactionPickerProps> = ({ onSelect, onClose, targetElement }) => {
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const emojis = ['👍', '❤️', '😂', '😮', '😢', '😡', '😀', '😍', '🤔', '👏', '🙏', '🔥'];
@@ -13,6 +15,10 @@ const ReactionPicker: React.FC<ReactionPickerProps> = ({ onSelect, onClose }) =>
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        // Don't close if clicking on the target element (menu button)
+        if (targetElement && targetElement.contains(event.target as Node)) {
+          return;
+        }
         onClose();
       }
     };
@@ -23,7 +29,7 @@ const ReactionPicker: React.FC<ReactionPickerProps> = ({ onSelect, onClose }) =>
       }
     };
 
-    // Add event listeners immediately
+    // Add event listeners immediately to prevent issues
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
 
@@ -31,7 +37,7 @@ const ReactionPicker: React.FC<ReactionPickerProps> = ({ onSelect, onClose }) =>
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [onClose]);
+  }, [onClose, targetElement]);
 
   const handleEmojiClick = (emoji: string) => {
     onSelect(emoji);
@@ -50,16 +56,46 @@ const ReactionPicker: React.FC<ReactionPickerProps> = ({ onSelect, onClose }) =>
       ref={pickerRef}
       role="dialog"
       aria-label="Reaction picker"
-      className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 grid grid-cols-6 gap-1 z-50"
+      className="reaction-picker-container"
+      style={{ 
+        position: 'absolute',
+        top: '100%',
+        right: 0,
+        marginTop: '8px',
+        zIndex: 99999, // Very high z-index to ensure visibility
+        backgroundColor: 'white',
+        border: '1px solid #e5e7eb',
+        borderRadius: '8px',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        padding: '12px',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(6, 1fr)',
+        gap: '8px',
+        minWidth: 'max-content',
+        pointerEvents: 'auto', // Ensure clicks are captured
+      }}
     >
       {emojis.map((emoji, index) => (
         <button
           key={index}
           type="button"
           aria-label={`React with ${emoji}`}
-          className="hover:bg-gray-100 rounded-full p-2 text-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="reaction-emoji-button"
           onClick={() => handleEmojiClick(emoji)}
           onKeyDown={(e) => handleKeyDown(e, emoji)}
+          style={{ 
+            minWidth: '40px',
+            minHeight: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: 'none',
+            background: 'transparent',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            fontSize: '1.125rem',
+            transition: 'background-color 0.15s ease',
+          }}
         >
           {emoji}
         </button>
@@ -68,4 +104,4 @@ const ReactionPicker: React.FC<ReactionPickerProps> = ({ onSelect, onClose }) =>
   );
 };
 
-export default ReactionPicker; 
+export default ReactionPicker;

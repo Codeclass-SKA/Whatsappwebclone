@@ -16,7 +16,9 @@ class Chat extends Model
         'type',
         'name',
         'avatar',
-        'created_by'
+        'created_by',
+        'last_message_content',
+        'last_message_sender_id'
     ];
 
     protected $casts = [

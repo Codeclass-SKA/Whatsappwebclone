@@ -67,3 +67,8 @@ export default tseslint.config([
   },
 ])
 ```
+
+## testing 
+```
+npm test -- --runInBand --detectOpenHandles --forceExit
+```

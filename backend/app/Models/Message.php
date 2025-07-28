@@ -71,6 +71,14 @@ class Message extends Model
     }
 
     /**
+     * Get the original message (alias for forwardedFrom).
+     */
+    public function originalMessage(): BelongsTo
+    {
+        return $this->belongsTo(Message::class, 'forwarded_from');
+    }
+
+    /**
      * Get the messages that are forwarded from this message.
      */
     public function forwardedTo(): HasMany

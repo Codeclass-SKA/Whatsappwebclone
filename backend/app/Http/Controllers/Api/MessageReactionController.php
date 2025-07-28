@@ -192,7 +192,7 @@ class MessageReactionController extends Controller
         $reaction->delete();
 
         // Broadcast the reaction removal event
-        event(new MessageReactionRemoved($reactionData, $chatId));
+        event(new MessageReactionRemoved($reactionData['id'], $reactionData['message_id'], $reactionData['user_id'], $chatId));
 
         return response()->json(['message' => 'Reaction removed successfully']);
     }

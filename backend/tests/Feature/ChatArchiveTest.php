@@ -174,7 +174,8 @@ class ChatArchiveTest extends TestCase
         // Send message to archived chat
         $response = $this->actingAs($this->otherUser)
             ->postJson("/api/chats/{$this->chat->id}/messages", [
-                'content' => 'Message to archived chat'
+                'content' => 'Message to archived chat',
+                'type' => 'text'
             ]);
 
         $response->assertStatus(201);

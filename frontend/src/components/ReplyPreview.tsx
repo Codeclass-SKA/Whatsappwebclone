@@ -18,9 +18,10 @@ interface ReplyToMessage {
 interface ReplyPreviewProps {
   replyTo: ReplyToMessage;
   isOwnMessage: boolean;
+  onCancelReply?: () => void;
 }
 
-const ReplyPreview: React.FC<ReplyPreviewProps> = ({ replyTo, isOwnMessage }) => {
+const ReplyPreview: React.FC<ReplyPreviewProps> = ({ replyTo, isOwnMessage, onCancelReply }) => {
   const getMessageIcon = (type: string) => {
     switch (type) {
       case 'image':

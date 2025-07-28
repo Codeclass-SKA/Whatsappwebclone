@@ -35,9 +35,10 @@ class FileUploadTest extends TestCase
         $file = UploadedFile::fake()->image('test-image.jpg', 800, 600);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/upload", [
+            ->postJson("/api/files/upload", [
                 'file' => $file,
-                'type' => 'image'
+                'type' => 'image',
+                'chat_id' => $this->chat->id
             ]);
 
         $response->assertStatus(201)
@@ -70,9 +71,10 @@ class FileUploadTest extends TestCase
         $file = UploadedFile::fake()->create('document.pdf', 1024);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/upload", [
+            ->postJson("/api/files/upload", [
                 'file' => $file,
-                'type' => 'document'
+                'type' => 'document',
+                'chat_id' => $this->chat->id
             ]);
 
         $response->assertStatus(201)
@@ -105,9 +107,10 @@ class FileUploadTest extends TestCase
         $file = UploadedFile::fake()->create('audio.mp3', 2048);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/upload", [
+            ->postJson("/api/files/upload", [
                 'file' => $file,
-                'type' => 'audio'
+                'type' => 'audio',
+                'chat_id' => $this->chat->id
             ]);
 
         $response->assertStatus(201)
@@ -140,9 +143,10 @@ class FileUploadTest extends TestCase
         $file = UploadedFile::fake()->create('script.exe', 1024);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/upload", [
+            ->postJson("/api/files/upload", [
                 'file' => $file,
-                'type' => 'executable'
+                'type' => 'executable',
+                'chat_id' => $this->chat->id
             ]);
 
         $response->assertStatus(422)
@@ -154,9 +158,10 @@ class FileUploadTest extends TestCase
         $file = UploadedFile::fake()->create('large-file.pdf', 10240); // 10MB
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/upload", [
+            ->postJson("/api/files/upload", [
                 'file' => $file,
-                'type' => 'document'
+                'type' => 'document',
+                'chat_id' => $this->chat->id
             ]);
 
         $response->assertStatus(422)
@@ -173,9 +178,10 @@ class FileUploadTest extends TestCase
         $file = UploadedFile::fake()->image('test-image.jpg');
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$unauthorizedChat->id}/upload", [
+            ->postJson("/api/files/upload", [
                 'file' => $file,
-                'type' => 'image'
+                'type' => 'image',
+                'chat_id' => $unauthorizedChat->id
             ]);
 
         $response->assertStatus(403);
@@ -185,9 +191,10 @@ class FileUploadTest extends TestCase
     {
         $file = UploadedFile::fake()->image('test-image.jpg');
 
-        $response = $this->postJson("/api/chats/{$this->chat->id}/upload", [
+        $response = $this->postJson("/api/files/upload", [
             'file' => $file,
-            'type' => 'image'
+            'type' => 'image',
+            'chat_id' => $this->chat->id
         ]);
 
         $response->assertStatus(401);
@@ -196,8 +203,9 @@ class FileUploadTest extends TestCase
     public function test_upload_requires_file_parameter()
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/upload", [
-                'type' => 'image'
+            ->postJson("/api/files/upload", [
+                'type' => 'image',
+                'chat_id' => $this->chat->id
             ]);
 
         $response->assertStatus(422)
@@ -209,8 +217,9 @@ class FileUploadTest extends TestCase
         $file = UploadedFile::fake()->image('test-image.jpg');
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/upload", [
-                'file' => $file
+            ->postJson("/api/files/upload", [
+                'file' => $file,
+                'chat_id' => $this->chat->id
             ]);
 
         $response->assertStatus(422)
@@ -222,9 +231,10 @@ class FileUploadTest extends TestCase
         $file = UploadedFile::fake()->image('test-image.jpg');
         
         $uploadResponse = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/upload", [
+            ->postJson("/api/files/upload", [
                 'file' => $file,
-                'type' => 'image'
+                'type' => 'image',
+                'chat_id' => $this->chat->id
             ]);
 
         $messageId = $uploadResponse->json('data.id');
@@ -248,9 +258,10 @@ class FileUploadTest extends TestCase
         $file = UploadedFile::fake()->image('test-image.jpg');
         
         $uploadResponse = $this->actingAs($otherUser)
-            ->postJson("/api/chats/{$otherChat->id}/upload", [
+            ->postJson("/api/files/upload", [
                 'file' => $file,
-                'type' => 'image'
+                'type' => 'image',
+                'chat_id' => $otherChat->id
             ]);
 
         $messageId = $uploadResponse->json('data.id');

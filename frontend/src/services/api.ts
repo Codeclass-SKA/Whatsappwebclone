@@ -1,25 +1,28 @@
 import axios from 'axios';
 import type { AuthResponse, LoginCredentials, RegisterCredentials, UpdateProfileData, User, Chat, Message, MessageReaction } from '../types';
-
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+import { API_URL } from '../utils/env';
 
 // Extend axios config type to include metadata
-interface ExtendedAxiosRequestConfig extends any {
+interface ExtendedAxiosRequestConfig {
   metadata?: {
     startTime: Date;
   };
+  headers?: any;
+  method?: string;
+  url?: string;
 }
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
 });
 
 // Request interceptor to add auth token and monitor performance
 api.interceptors.request.use(
-  (config: ExtendedAxiosRequestConfig) => {
+  (config: any) => {
     // Add timestamp for performance monitoring
     config.metadata = { startTime: new Date() };
     
@@ -36,7 +39,10 @@ api.interceptors.request.use(
       }
     }
     
-    console.log(`[API] ${config.method?.toUpperCase()} ${config.url} - Request started`);
+    // Only log non-polling requests to reduce console noise
+    if (!config.url?.includes('/messages') || config.method !== 'GET') {
+      console.log(`[API] ${config.method?.toUpperCase()} ${config.url} - Request started`);
+    }
     return config;
   },
   (error) => {
@@ -53,9 +59,12 @@ api.interceptors.response.use(
     const startTime = response.config.metadata?.startTime;
     const duration = startTime ? endTime.getTime() - startTime.getTime() : 0;
     
-    console.log(`[API] ${response.config.method?.toUpperCase()} ${response.config.url} - Success (${duration}ms)`);
+    // Only log non-polling requests to reduce console noise
+    if (!response.config.url?.includes('/messages') || response.config.method !== 'GET') {
+      console.log(`[API] ${response.config.method?.toUpperCase()} ${response.config.url} - Success (${duration}ms)`);
+    }
     
-    // Log slow responses (>1000ms)
+    // Log slow responses (>1000ms) for all requests
     if (duration > 1000) {
       console.warn(`[API] Slow response detected: ${response.config.url} took ${duration}ms`);
     }
@@ -135,7 +144,7 @@ export const chatService = {
 
   async sendMessage(chatId: number, data: { content: string; message_type?: string; file_url?: string; reply_to_id?: number }): Promise<Message> {
     const response = await api.post(`/chats/${chatId}/messages`, data);
-    return response.data.data;
+    return response.data.data; // Backend returns with data wrapper
   },
 };
 
@@ -166,9 +175,26 @@ export const updateReaction = async (messageId: number, reactionId: number, emoj
   return response.data.data;
 };
 
+// Simple cache for message reactions
+const reactionsCache = new Map<number, { data: MessageReaction[]; timestamp: number }>();
+const CACHE_DURATION = 30000; // 30 seconds
+
 export const getMessageReactions = async (messageId: number): Promise<MessageReaction[]> => {
+  const now = Date.now();
+  const cached = reactionsCache.get(messageId);
+  
+  // Return cached data if it's still valid
+  if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+    return cached.data;
+  }
+  
   const response = await api.get(`/messages/${messageId}/reactions`);
-  return response.data.data;
+  const data = response.data.data;
+  
+  // Cache the result
+  reactionsCache.set(messageId, { data, timestamp: now });
+  
+  return data;
 };
 
 // Message Forwarding
@@ -196,4 +222,4 @@ export const getMessageReplies = async (messageId: number): Promise<Message[]> =
   return response.data.data;
 };
 
-export default api; 
+export default api;

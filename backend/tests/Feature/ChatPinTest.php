@@ -130,7 +130,8 @@ class ChatPinTest extends TestCase
 
         $response = $this->actingAs($this->user)
             ->postJson("/api/chats/{$this->chat->id}/messages", [
-                'content' => 'Test message'
+                'content' => 'Test message',
+                'type' => 'text'
             ]);
 
         $response->assertStatus(201);

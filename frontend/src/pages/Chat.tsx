@@ -11,9 +11,11 @@ import NewChatModal from '../components/NewChatModal';
 import ForwardMessageModal from '../components/ForwardMessageModal';
 import MessageSearch from '../components/MessageSearch';
 import LogoutButton from '../components/LogoutButton';
-import { useWebSocket } from '../hooks/useWebSocket';
+import EchoErrorBoundary from '../components/EchoErrorBoundary';
+import { useEcho } from '../hooks/useEcho';
 import { useMessagePolling } from '../hooks/useMessagePolling';
-import { chatService, addReaction, removeReaction, updateReaction, getMessageReactions, forwardMessage, deleteMessage } from '../services/api';
+import { addReaction, removeReaction, updateReaction, getMessageReactions, forwardMessage, deleteMessage } from '../services/api';
+import chatService from '../services/chatService';
 import type { Chat, Message } from '../types';
 
 const Chat: React.FC = () => {
@@ -38,7 +40,16 @@ const Chat: React.FC = () => {
       setMessages(prev => [...prev, newMessage]);
       setChats(prev => prev.map(chat => 
         chat.id === newMessage.chat_id 
-          ? { ...chat, last_message: newMessage }
+          ? { 
+              ...chat, 
+              last_message: {
+                id: newMessage.id,
+                content: newMessage.content,
+                type: newMessage.message_type,
+                created_at: newMessage.created_at,
+                user: newMessage.user
+              }
+            }
           : chat
       ));
     }
@@ -75,13 +86,16 @@ const Chat: React.FC = () => {
     }
   };
 
-  // WebSocket hook (primary method)
-  useWebSocket({
-    chatId: selectedChat?.id,
-    onMessageReceived: handleNewMessage,
-    onReactionAdded: handleReactionAdded,
-    onReactionRemoved: handleReactionRemoved
-  });
+  // Laravel Echo hook (primary method) - wrapped in error boundary
+  const EchoHookWrapper = () => {
+    useEcho({
+      chatId: selectedChat?.id,
+      onMessageReceived: handleNewMessage,
+      onReactionAdded: handleReactionAdded,
+      onReactionRemoved: handleReactionRemoved
+    });
+    return null;
+  };
 
   // Polling hook (fallback method)
   useMessagePolling({
@@ -170,6 +184,7 @@ const Chat: React.FC = () => {
       // Create payload with only necessary fields
       const payload: any = {
         content,
+        type: 'text' // Backend expects 'type' not 'message_type'
       };
 
       // Only add reply_to_id if we're actually replying to a message
@@ -190,7 +205,16 @@ const Chat: React.FC = () => {
       setChats(prevChats =>
         prevChats.map(chat => 
           chat.id === selectedChat.id 
-            ? { ...chat, last_message: { content, user_name: user?.name || 'You', created_at: newMessage.created_at } }
+            ? { 
+                ...chat, 
+                last_message: { 
+                  id: newMessage.id,
+                  content, 
+                  type: newMessage.message_type,
+                  created_at: newMessage.created_at,
+                  user: newMessage.user
+                } 
+              }
             : chat
         )
       );
@@ -280,6 +304,11 @@ const Chat: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Echo Error Boundary */}
+      <EchoErrorBoundary>
+        <EchoHookWrapper />
+      </EchoErrorBoundary>
+      
       <div className="flex h-screen">
         {/* Sidebar */}
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
@@ -396,8 +425,9 @@ const Chat: React.FC = () => {
                 />
                 {replyingTo && (
                   <ReplyPreview 
-                    message={replyingTo} 
-                    onCancelReply={handleCancelReply} 
+                    replyTo={replyingTo} 
+                    isOwnMessage={replyingTo.sender_id === user?.id}
+                    onCancelReply={handleCancelReply}
                   />
                 )}
               </div>
@@ -456,4 +486,4 @@ const Chat: React.FC = () => {
   );
 };
 
-export default Chat; 
+export default Chat;

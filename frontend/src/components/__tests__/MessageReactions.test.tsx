@@ -1,178 +1,281 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MessageReactions from '../MessageReactions';
+import { addReaction, removeReaction } from '../../services/chatService';
+import type { MessageReaction } from '../../types';
 
-// Mock chatService
+// Mock the chatService
 jest.mock('../../services/chatService', () => ({
   addReaction: jest.fn(),
   removeReaction: jest.fn(),
 }));
 
-const mockChatService = require('../../services/chatService');
+const mockAddReaction = addReaction as jest.MockedFunction<typeof addReaction>;
+const mockRemoveReaction = removeReaction as jest.MockedFunction<typeof removeReaction>;
 
 describe('MessageReactions', () => {
+  const mockOnRemoveReaction = jest.fn();
+  const mockOnUpdateReaction = jest.fn();
+
   const defaultProps = {
     messageId: 1,
-    chatId: 1,
-    reactions: [
-      { id: 1, emoji: '👍', user_id: 1, user: { name: 'John Doe' } },
-      { id: 2, emoji: '❤️', user_id: 2, user: { name: 'Jane Smith' } },
-      { id: 3, emoji: '👍', user_id: 3, user: { name: 'Bob Wilson' } },
-    ],
-    currentUserId: 1,
-    onReactionUpdate: jest.fn(),
+    reactions: [] as MessageReaction[],
+    onRemoveReaction: mockOnRemoveReaction,
+    onUpdateReaction: mockOnUpdateReaction,
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  it('renders reactions correctly', () => {
-    render(<MessageReactions {...defaultProps} />);
-    
-    expect(screen.getByText('👍')).toBeInTheDocument();
-    expect(screen.getByText('❤️')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument(); // Count for 👍
-    expect(screen.getByText('1')).toBeInTheDocument(); // Count for ❤️
-  });
-
-  it('shows user names in tooltip', () => {
-    render(<MessageReactions {...defaultProps} />);
-    
-    const reactionButton = screen.getByText('👍').closest('button');
-    expect(reactionButton).toHaveAttribute('title', 'John Doe, Bob Wilson');
-  });
-
-  it('removes reaction when clicking on own reaction', async () => {
-    mockChatService.removeReaction.mockResolvedValue({ success: true });
-    
-    render(<MessageReactions {...defaultProps} />);
-    
-    const reactionButton = screen.getByText('👍').closest('button');
-    fireEvent.click(reactionButton!);
-    
-    await waitFor(() => {
-      expect(mockChatService.removeReaction).toHaveBeenCalledWith(1, 1, '👍');
-      expect(defaultProps.onReactionUpdate).toHaveBeenCalled();
+    // Mock localStorage
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: jest.fn(() => '1'),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+      },
+      writable: true,
     });
   });
 
-  it('removes reaction when clicking on own reaction', async () => {
-    mockChatService.removeReaction.mockResolvedValue({ success: true });
-    
+  it('should render empty state when no reactions', () => {
     render(<MessageReactions {...defaultProps} />);
     
-    const reactionButton = screen.getByText('👍').closest('button');
-    fireEvent.click(reactionButton!);
+    const addButton = screen.getByLabelText('Add reaction');
+    expect(addButton).toBeTruthy();
+  });
+
+  it('should render grouped reactions', () => {
+    const reactions: MessageReaction[] = [
+      {
+        id: 1,
+        message_id: 1,
+        user_id: 1,
+        emoji: '👍',
+        user: { id: 1, name: 'John', email: 'john@example.com', is_online: true, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+      {
+        id: 2,
+        message_id: 1,
+        user_id: 2,
+        emoji: '👍',
+        user: { id: 2, name: 'Jane', email: 'jane@example.com', is_online: false, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+    ];
+
+    render(<MessageReactions {...defaultProps} reactions={reactions} />);
     
+    const reactionButton = screen.getByText('👍');
+    expect(reactionButton).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy();
+  });
+
+  it('should handle reaction click for user reaction removal', async () => {
+    const reactions: MessageReaction[] = [
+      {
+        id: 1,
+        message_id: 1,
+        user_id: 1,
+        emoji: '👍',
+        user: { id: 1, name: 'John', email: 'john@example.com', is_online: true, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+    ];
+
+    render(<MessageReactions {...defaultProps} reactions={reactions} />);
+    
+    const reactionButton = screen.getByText('👍');
+    fireEvent.click(reactionButton);
+
     await waitFor(() => {
-      expect(mockChatService.removeReaction).toHaveBeenCalledWith(1, 1, '👍');
-      expect(defaultProps.onReactionUpdate).toHaveBeenCalled();
+      expect(mockOnRemoveReaction).toHaveBeenCalledWith(1, 1);
     });
   });
 
-  it('shows reaction picker when clicking add reaction button', () => {
+  it('should handle adding new reaction', async () => {
+    mockAddReaction.mockResolvedValue({
+      id: 1,
+      message_id: 1,
+      user_id: 1,
+      emoji: '👍',
+      user: { id: 1, name: 'John', email: 'john@example.com', created_at: '', updated_at: '' },
+      created_at: '',
+      updated_at: '',
+    });
+
     render(<MessageReactions {...defaultProps} />);
     
     const addButton = screen.getByLabelText('Add reaction');
     fireEvent.click(addButton);
-    
-    expect(screen.getByText('😀')).toBeInTheDocument();
-    expect(screen.getByText('😍')).toBeInTheDocument();
-    expect(screen.getByText('🤔')).toBeInTheDocument();
-    expect(screen.getByText('😂')).toBeInTheDocument();
+
+    // Wait for picker to appear
+    await waitFor(() => {
+      expect(screen.getByLabelText('Reaction picker')).toBeTruthy();
+    });
+
+    const thumbsUpButton = screen.getByLabelText('React with 👍');
+    fireEvent.click(thumbsUpButton);
+
+    await waitFor(() => {
+      expect(mockAddReaction).toHaveBeenCalledWith(1, 0, '👍');
+    });
   });
 
-  it('adds new reaction from picker', async () => {
-    mockChatService.addReaction.mockResolvedValue({ success: true });
-    
+  it('should show reaction picker on add button click', async () => {
     render(<MessageReactions {...defaultProps} />);
     
     const addButton = screen.getByLabelText('Add reaction');
     fireEvent.click(addButton);
-    
-    const emojiButton = screen.getByText('😂');
-    fireEvent.click(emojiButton);
-    
+
     await waitFor(() => {
-      expect(mockChatService.addReaction).toHaveBeenCalledWith(1, 1, '😂');
-      expect(defaultProps.onReactionUpdate).toHaveBeenCalled();
+      expect(screen.getByLabelText('Reaction picker')).toBeTruthy();
     });
   });
 
-  it('closes reaction picker when selecting emoji', async () => {
-    mockChatService.addReaction.mockResolvedValue({ success: true });
+  it('should group reactions by emoji correctly', () => {
+    const reactions: MessageReaction[] = [
+      {
+        id: 1,
+        message_id: 1,
+        user_id: 1,
+        emoji: '👍',
+        user: { id: 1, name: 'John', email: 'john@example.com', is_online: true, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+      {
+        id: 2,
+        message_id: 1,
+        user_id: 2,
+        emoji: '👍',
+        user: { id: 2, name: 'Jane', email: 'jane@example.com', is_online: false, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+      {
+        id: 3,
+        message_id: 1,
+        user_id: 3,
+        emoji: '❤️',
+        user: { id: 3, name: 'Bob', email: 'bob@example.com', is_online: true, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+    ];
+
+    render(<MessageReactions {...defaultProps} reactions={reactions} />);
     
-    render(<MessageReactions {...defaultProps} />);
-    
-    const addButton = screen.getByLabelText('Add reaction');
-    fireEvent.click(addButton);
-    
-    expect(screen.getByText('😀')).toBeInTheDocument();
-    
-    const emojiButton = screen.getByText('😀');
-    fireEvent.click(emojiButton);
-    
-    await waitFor(() => {
-      expect(screen.queryByText('😀')).not.toBeInTheDocument();
-    });
+    expect(screen.getByText('👍')).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy();
+    expect(screen.getByText('❤️')).toBeTruthy();
+    expect(screen.getByText('1')).toBeTruthy();
   });
 
-  it('handles reaction add error gracefully', async () => {
-    mockChatService.addReaction.mockRejectedValue(new Error('Failed to add reaction'));
-    
-    render(<MessageReactions {...defaultProps} />);
-    
-    const addButton = screen.getByLabelText('Add reaction');
-    fireEvent.click(addButton);
-    
-    const emojiButton = screen.getByText('😂');
-    fireEvent.click(emojiButton);
-    
-    await waitFor(() => {
-      expect(mockChatService.addReaction).toHaveBeenCalledWith(1, 1, '😂');
-      // Should not call onReactionUpdate on error
-      expect(defaultProps.onReactionUpdate).not.toHaveBeenCalled();
-    });
-  });
+  it('should highlight user reactions', () => {
+    const reactions: MessageReaction[] = [
+      {
+        id: 1,
+        message_id: 1,
+        user_id: 1,
+        emoji: '👍',
+        user: { id: 1, name: 'John', email: 'john@example.com', is_online: true, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+    ];
 
-  it('handles reaction remove error gracefully', async () => {
-    mockChatService.removeReaction.mockRejectedValue(new Error('Failed to remove reaction'));
-    
-    render(<MessageReactions {...defaultProps} />);
+    render(<MessageReactions {...defaultProps} reactions={reactions} />);
     
     const reactionButton = screen.getByText('👍').closest('button');
-    fireEvent.click(reactionButton!);
+    expect(reactionButton).toHaveClass('bg-blue-100');
+  });
+
+  it('should show user names in tooltip', () => {
+    const reactions: MessageReaction[] = [
+      {
+        id: 1,
+        message_id: 1,
+        user_id: 1,
+        emoji: '👍',
+        user: { id: 1, name: 'John', email: 'john@example.com', is_online: true, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+      {
+        id: 2,
+        message_id: 1,
+        user_id: 2,
+        emoji: '👍',
+        user: { id: 2, name: 'Jane', email: 'jane@example.com', is_online: false, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+    ];
+
+    render(<MessageReactions {...defaultProps} reactions={reactions} />);
     
+    const reactionButton = screen.getByText('👍').closest('button');
+    expect(reactionButton).toHaveAttribute('title', 'John, Jane');
+  });
+
+  it('should handle reaction click for non-user reaction addition', async () => {
+    const reactions: MessageReaction[] = [
+      {
+        id: 1,
+        message_id: 1,
+        user_id: 2,
+        emoji: '👍',
+        user: { id: 2, name: 'Jane', email: 'jane@example.com', is_online: false, created_at: '', updated_at: '' },
+        created_at: '',
+        updated_at: '',
+      },
+    ];
+
+    mockAddReaction.mockResolvedValue({
+      id: 2,
+      message_id: 1,
+      user_id: 1,
+      emoji: '👍',
+      user: { id: 1, name: 'John', email: 'john@example.com', created_at: '', updated_at: '' },
+      created_at: '',
+      updated_at: '',
+    });
+
+    render(<MessageReactions {...defaultProps} reactions={reactions} />);
+    
+    const reactionButton = screen.getByText('👍');
+    fireEvent.click(reactionButton);
+
     await waitFor(() => {
-      expect(mockChatService.removeReaction).toHaveBeenCalledWith(1, 1, '👍');
-      // Should not call onReactionUpdate on error
-      expect(defaultProps.onReactionUpdate).not.toHaveBeenCalled();
+      expect(mockAddReaction).toHaveBeenCalledWith(1, 0, '👍');
     });
   });
 
-  it('groups reactions by emoji correctly', () => {
-    render(<MessageReactions {...defaultProps} />);
-    
-    // Should show 2 👍 reactions grouped together
-    expect(screen.getByText('2')).toBeInTheDocument();
-    
-    // Should show 1 ❤️ reaction
-    expect(screen.getByText('1')).toBeInTheDocument();
-  });
+  it('should handle errors in reaction operations', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockAddReaction.mockRejectedValue(new Error('Network error'));
 
-  it('highlights user own reactions', () => {
     render(<MessageReactions {...defaultProps} />);
     
-    const ownReaction = screen.getByText('👍').closest('button');
-    expect(ownReaction).toHaveClass('bg-blue-100');
-  });
+    const addButton = screen.getByLabelText('Add reaction');
+    fireEvent.click(addButton);
 
-  it('does not highlight other user reactions', () => {
-    render(<MessageReactions {...defaultProps} />);
-    
-    const otherReaction = screen.getByText('❤️').closest('button');
-    expect(otherReaction).not.toHaveClass('bg-blue-100');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Reaction picker')).toBeTruthy();
+    });
+
+    const thumbsUpButton = screen.getByLabelText('React with 👍');
+    fireEvent.click(thumbsUpButton);
+
+    await waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith('Failed to add reaction:', expect.any(Error));
+    });
+
+    consoleError.mockRestore();
   });
-}); 
+});

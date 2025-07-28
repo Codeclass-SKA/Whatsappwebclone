@@ -132,7 +132,8 @@ class ChatMuteTest extends TestCase
         // Send a message to the chat
         $response = $this->actingAs($this->otherUser)
             ->postJson("/api/chats/{$this->chat->id}/messages", [
-                'content' => 'Test message'
+                'content' => 'Test message',
+                'type' => 'text'
             ]);
 
         $response->assertStatus(201);

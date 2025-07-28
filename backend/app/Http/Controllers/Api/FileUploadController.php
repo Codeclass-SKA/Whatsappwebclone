@@ -17,14 +17,16 @@ class FileUploadController extends Controller
     /**
      * Upload a file to a chat.
      */
-    public function upload(Request $request, Chat $chat): JsonResponse
+    public function upload(Request $request): JsonResponse
     {
         $request->validate([
             'file' => 'required|file|max:5120', // 5MB max
-            'type' => 'required|in:image,document,audio'
+            'type' => 'required|in:image,document,audio',
+            'chat_id' => 'required|exists:chats,id'
         ]);
 
         $user = Auth::user();
+        $chat = Chat::findOrFail($request->chat_id);
         
         // Check if user is participant of this chat
         if (!$chat->participants()->where('user_id', $user->id)->exists()) {

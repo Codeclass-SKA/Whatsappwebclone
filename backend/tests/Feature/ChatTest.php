@@ -155,7 +155,8 @@ class ChatTest extends TestCase
         Sanctum::actingAs($user);
 
         $messageData = [
-            'content' => 'Hello! This is a test message.'
+            'content' => 'Hello! This is a test message.',
+            'type' => 'text'
         ];
 
         // Act

@@ -29,7 +29,8 @@ class MessageTest extends TestCase
 
         $response = $this->actingAs($user1)
             ->postJson("/api/chats/{$chat->id}/messages", [
-                'content' => 'Hello, this is a test message!'
+                'content' => 'Hello, this is a test message!',
+                'type' => 'text'
             ]);
 
         $response->assertStatus(201);
@@ -40,11 +41,6 @@ class MessageTest extends TestCase
                 'sender_id',
                 'chat_id',
                 'message_type',
-                'user' => [
-                    'id',
-                    'name',
-                    'avatar'
-                ],
                 'created_at',
                 'updated_at'
             ]

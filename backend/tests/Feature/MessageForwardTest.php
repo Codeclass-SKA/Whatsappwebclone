@@ -224,7 +224,7 @@ class MessageForwardTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/messages/forward-multiple", [
+            ->postJson("/api/messages/forward", [
                 'message_ids' => [$message1->id, $message2->id],
                 'target_chat_id' => $this->targetChat->id
             ]);

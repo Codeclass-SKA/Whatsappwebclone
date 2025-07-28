@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["es5", "dom"],
+    "types": ["cypress", "@testing-library/cypress", "node"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "baseUrl": "../node_modules",
+    "noEmit": true
+  },
+  "include": [
+    "**/*.ts",
+    "../node_modules/cypress",
+    "../node_modules/@testing-library/cypress"
+  ]
+}

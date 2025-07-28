@@ -111,8 +111,26 @@ class ChatController extends Controller
         $chat->participants()->attach($participantIds);
 
         return response()->json([
-            'data' => $this->formatChat($chat->load('participants'), $user)
+            'data' => $this->formatChat($chat, $user)
         ], 201);
+    }
+
+    /**
+     * Get a specific chat.
+     */
+    public function show(Chat $chat): JsonResponse
+    {
+        $user = Auth::user();
+        
+        // Check if user is participant of this chat
+        $participant = $chat->participants()->where('user_id', $user->id)->first();
+        if (!$participant) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        return response()->json([
+            'data' => $this->formatChat($chat, $user)
+        ]);
     }
 
     /**
@@ -135,7 +153,7 @@ class ChatController extends Controller
                                    ->orWhere('sender_id', $user->id);
                       });
             })
-            ->with(['user', 'replyTo.user', 'forwardedFrom.user'])
+            ->with(['user', 'replyTo.user', 'forwardedFrom.user', 'reactions.user'])
             ->orderBy('created_at', 'asc')
             ->get()
             ->map(function ($message) {
@@ -150,6 +168,17 @@ class ChatController extends Controller
                         'name' => $message->user->name,
                         'avatar' => $message->user->avatar
                     ],
+                    'reactions' => $message->reactions->map(function ($reaction) {
+                        return [
+                            'id' => $reaction->id,
+                            'emoji' => $reaction->emoji,
+                            'user_id' => $reaction->user_id,
+                            'user' => [
+                                'id' => $reaction->user->id,
+                                'name' => $reaction->user->name,
+                            ]
+                        ];
+                    }),
                     'created_at' => $message->created_at,
                     'updated_at' => $message->updated_at
                 ];
@@ -240,7 +269,14 @@ class ChatController extends Controller
 
         $message = $chat->messages()->create($messageData);
 
-        $message->load(['user', 'replyTo.user']);
+        // Update chat's last message info
+        $chat->update([
+            'last_message_content' => $message->content,
+            'last_message_sender_id' => $message->sender_id,
+            'updated_at' => now()
+        ]);
+
+        $message->load(['user', 'replyTo.user', 'reactions.user']);
 
         // Broadcast the message to other participants
         broadcast(new MessageSent($message))->toOthers();
@@ -273,15 +309,21 @@ class ChatController extends Controller
                     'avatar' => $message->replyTo->user->avatar
                 ]
             ];
+            $responseData['reply_to_message'] = [
+                'id' => $message->replyTo->id,
+                'content' => $message->replyTo->content,
+                'user' => [
+                    'id' => $message->replyTo->user->id,
+                    'name' => $message->replyTo->user->name,
+                ]
+            ];
         }
 
         if ($message->file_url) {
             $responseData['file_url'] = $message->file_url;
         }
 
-        return response()->json([
-            'data' => $responseData
-        ], 201);
+        return response()->json(['data' => $responseData], 201);
     }
 
     /**

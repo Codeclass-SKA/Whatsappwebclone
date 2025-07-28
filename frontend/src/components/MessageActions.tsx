@@ -41,11 +41,12 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        // Add delay for reaction picker to prevent immediate closing
+        // Don't close reaction picker immediately if it's open
         if (showReactionPicker) {
+          // Add a small delay to allow clicking on the picker
           setTimeout(() => {
             setShowReactionPicker(false);
-          }, 200); // Increased delay
+          }, 100);
         } else {
           setShowMenu(false);
           setShowDeleteConfirm(false);
@@ -53,9 +54,12 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showReactionPicker]);
+    // Only add event listener if menu or picker is open
+    if (showMenu || showReactionPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMenu, showReactionPicker]);
 
   const handleDelete = (deleteType: 'for_me' | 'for_everyone') => {
     onDelete(message.id, deleteType);
@@ -65,38 +69,32 @@ const MessageActions: React.FC<MessageActionsProps> = ({
 
   const handleReactionSelect = (emoji: string) => {
     onReact(message.id, emoji);
-    // Add delay before closing to prevent immediate closure
-    setTimeout(() => {
-      setShowReactionPicker(false);
-      setShowMenu(false);
-    }, 100);
+    setShowReactionPicker(false);
+    setShowMenu(false);
   };
 
   const handleReactClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent click from bubbling up and closing the menu immediately
     setShowMenu(false);
     
-    // Add small delay to prevent immediate opening/closing
-    setTimeout(() => {
-      // Calculate position for reaction picker using menuRef
-      if (menuRef.current) {
-        const rect = menuRef.current.getBoundingClientRect();
-        const windowHeight = window.innerHeight;
-        const spaceBelow = windowHeight - rect.bottom;
-        const spaceAbove = rect.top;
-        
-        // If not enough space below but enough above, show above
-        if (spaceBelow < 200 && spaceAbove > 200) {
-          setPickerPosition('top');
-        } else {
-          setPickerPosition('bottom');
-        }
+    // Calculate position for reaction picker
+    if (menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+      const spaceBelow = windowHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      // If not enough space below but enough above, show above
+      if (spaceBelow < 200 && spaceAbove > 200) {
+        setPickerPosition('top');
       } else {
         setPickerPosition('bottom');
       }
-      
-      setShowReactionPicker(true);
-    }, 50);
+    } else {
+      setPickerPosition('bottom');
+    }
+    
+    setShowReactionPicker(true);
   };
 
   // Only show the action button if the message is active
@@ -178,9 +176,9 @@ const MessageActions: React.FC<MessageActionsProps> = ({
         )}
       </div>
 
-      {/* Separate container for reaction picker */}
+      {/* Separate container for reaction picker with higher z-index */}
       {showReactionPicker && (
-        <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 z-20`}>
+        <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 z-50`}>
           <ReactionPicker
             onSelect={handleReactionSelect}
             onClose={() => setShowReactionPicker(false)}

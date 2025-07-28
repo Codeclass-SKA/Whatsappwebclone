@@ -15,6 +15,7 @@ const Avatar: React.FC<AvatarProps> = ({ src, alt, size = 'md', className = '' }
   };
 
   const getInitials = (name: string) => {
+    if (!name) return '?';
     return name
       .split(' ')
       .map(word => word.charAt(0))

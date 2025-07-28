@@ -37,9 +37,9 @@ class MessageReplyTest extends TestCase
     public function test_user_can_reply_to_message()
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/messages", [
+            ->postJson("/api/messages/{$this->originalMessage->id}/reply", [
                 'content' => 'I am fine, thank you!',
-                'reply_to_id' => $this->originalMessage->id
+                'type' => 'text'
             ]);
 
         $response->assertStatus(201)
@@ -85,9 +85,9 @@ class MessageReplyTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$unauthorizedChat->id}/messages", [
+            ->postJson("/api/messages/{$unauthorizedMessage->id}/reply", [
                 'content' => 'Reply to unauthorized message',
-                'reply_to_id' => $unauthorizedMessage->id
+                'type' => 'text'
             ]);
 
         $response->assertStatus(403);
@@ -96,13 +96,12 @@ class MessageReplyTest extends TestCase
     public function test_user_cannot_reply_to_nonexistent_message()
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/messages", [
+            ->postJson("/api/messages/99999/reply", [
                 'content' => 'Reply to nonexistent message',
-                'reply_to_id' => 99999
+                'type' => 'text'
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['reply_to_id']);
+        $response->assertStatus(404);
     }
 
     public function test_user_cannot_reply_to_deleted_message()
@@ -116,20 +115,20 @@ class MessageReplyTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/messages", [
+            ->postJson("/api/messages/{$deletedMessage->id}/reply", [
                 'content' => 'Reply to deleted message',
-                'reply_to_id' => $deletedMessage->id
+                'type' => 'text'
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['reply_to_id']);
+            ->assertJson(['message' => 'Cannot reply to deleted message']);
     }
 
     public function test_reply_message_requires_content()
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/messages", [
-                'reply_to_id' => $this->originalMessage->id
+            ->postJson("/api/messages/{$this->originalMessage->id}/reply", [
+                'type' => 'text'
             ]);
 
         $response->assertStatus(422)
@@ -139,9 +138,9 @@ class MessageReplyTest extends TestCase
     public function test_reply_message_content_cannot_be_empty()
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/messages", [
+            ->postJson("/api/messages/{$this->originalMessage->id}/reply", [
                 'content' => '',
-                'reply_to_id' => $this->originalMessage->id
+                'type' => 'text'
             ]);
 
         $response->assertStatus(422)
@@ -217,9 +216,10 @@ class MessageReplyTest extends TestCase
     public function test_reply_message_broadcasts_to_chat_participants()
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/messages", [
+            ->postJson("/api/messages/{$this->originalMessage->id}/reply", [
                 'content' => 'I am fine, thank you!',
-                'reply_to_id' => $this->originalMessage->id
+                'type' => 'text',
+                'reply_to' => $this->originalMessage->id
             ]);
 
         $response->assertStatus(201);
@@ -237,11 +237,10 @@ class MessageReplyTest extends TestCase
     public function test_reply_can_include_file_attachment()
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/messages", [
+            ->postJson("/api/messages/{$this->originalMessage->id}/reply", [
                 'content' => 'Here is the file you requested',
-                'reply_to_id' => $this->originalMessage->id,
-                'message_type' => 'file',
-                'file_url' => '/storage/files/document.pdf'
+                'type' => 'file',
+                'file_url' => 'http://localhost/storage/files/document.pdf'
             ]);
 
         $response->assertStatus(201)
@@ -250,7 +249,7 @@ class MessageReplyTest extends TestCase
                     'content' => 'Here is the file you requested',
                     'reply_to_id' => $this->originalMessage->id,
                     'message_type' => 'file',
-                    'file_url' => '/storage/files/document.pdf'
+                    'file_url' => 'http://localhost/storage/files/document.pdf'
                 ]
             ]);
     }
@@ -268,9 +267,9 @@ class MessageReplyTest extends TestCase
 
         // Reply to the first reply
         $response = $this->actingAs($this->otherUser)
-            ->postJson("/api/chats/{$this->chat->id}/messages", [
+            ->postJson("/api/messages/{$firstReply->id}/reply", [
                 'content' => 'Reply to the reply',
-                'reply_to_id' => $firstReply->id
+                'type' => 'text'
             ]);
 
         $response->assertStatus(201)
@@ -284,9 +283,9 @@ class MessageReplyTest extends TestCase
     public function test_reply_message_includes_original_message_context()
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/chats/{$this->chat->id}/messages", [
+            ->postJson("/api/messages/{$this->originalMessage->id}/reply", [
                 'content' => 'I am fine, thank you!',
-                'reply_to_id' => $this->originalMessage->id
+                'type' => 'text'
             ]);
 
         $response->assertStatus(201)

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Avatar from './Avatar';
 import type { Chat, Message } from '../types';
-import * as chatService from '../services/api';
+import chatService from '../services/chatService';
 
 interface ForwardMessageModalProps {
   isOpen: boolean;

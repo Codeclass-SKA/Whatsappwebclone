@@ -98,7 +98,7 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect }) => {
                     {chat.last_message ? (
                       <>
                         <span className="font-medium">
-                          {chat.last_message.user_name === user?.name ? 'You' : chat.last_message.user_name}
+                          {chat.last_message.user?.name === user?.name ? 'You' : chat.last_message.user?.name || 'Unknown User'}
                         </span>
                         : {chat.last_message.content}
                       </>

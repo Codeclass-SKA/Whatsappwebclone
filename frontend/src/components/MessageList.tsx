@@ -101,28 +101,51 @@ const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages, isNearBottom, autoScroll]);
 
-  // Load reactions for all messages
+  // Load reactions for all messages with debouncing and caching
   useEffect(() => {
     const loadReactions = async () => {
       if (messages.length === 0) return;
       
+      // Only load reactions for messages that don't have reactions loaded yet
+      const messagesNeedingReactions = messages.filter(
+        message => !reactions[message.id] && message.id
+      );
+      
+      if (messagesNeedingReactions.length === 0) return;
+      
       const reactionsMap: { [key: number]: any[] } = {};
       
-      for (const message of messages) {
-        try {
-          const messageReactions = await getMessageReactions(message.id);
-          reactionsMap[message.id] = messageReactions;
-        } catch (error) {
-          console.error(`Failed to load reactions for message ${message.id}:`, error);
-          reactionsMap[message.id] = [];
+      // Load reactions in batches to avoid overwhelming the server
+      const batchSize = 3;
+      for (let i = 0; i < messagesNeedingReactions.length; i += batchSize) {
+        const batch = messagesNeedingReactions.slice(i, i + batchSize);
+        
+        await Promise.all(
+          batch.map(async (message) => {
+            try {
+              const messageReactions = await getMessageReactions(message.id);
+              reactionsMap[message.id] = messageReactions;
+            } catch (error) {
+              console.error(`Failed to load reactions for message ${message.id}:`, error);
+              reactionsMap[message.id] = [];
+            }
+          })
+        );
+        
+        // Small delay between batches to prevent server overload
+        if (i + batchSize < messagesNeedingReactions.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
       
-      setReactions(reactionsMap);
+      setReactions(prev => ({ ...prev, ...reactionsMap }));
     };
 
-    loadReactions();
-  }, [messages]);
+    // Debounce the reaction loading to prevent excessive API calls
+    const timeoutId = setTimeout(loadReactions, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [messages, reactions]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);

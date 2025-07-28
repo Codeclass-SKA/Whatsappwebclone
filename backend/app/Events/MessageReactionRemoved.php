@@ -2,7 +2,6 @@
 
 namespace App\Events;
 
-use App\Models\MessageReaction;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
@@ -15,15 +14,19 @@ class MessageReactionRemoved implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $reactionData;
+    public $reactionId;
+    public $messageId;
+    public $userId;
     public $chatId;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(array $reactionData, int $chatId)
+    public function __construct(int $reactionId, int $messageId, int $userId, int $chatId)
     {
-        $this->reactionData = $reactionData;
+        $this->reactionId = $reactionId;
+        $this->messageId = $messageId;
+        $this->userId = $userId;
         $this->chatId = $chatId;
     }
 
@@ -35,25 +38,22 @@ class MessageReactionRemoved implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('chat.' . $this->chatId),
+            new PrivateChannel("chat.{$this->chatId}")
         ];
     }
 
     /**
      * Get the data to broadcast.
+     *
+     * @return array<string, mixed>
      */
     public function broadcastWith(): array
     {
         return [
-            'reaction' => $this->reactionData
+            'reaction_id' => $this->reactionId,
+            'message_id' => $this->messageId,
+            'user_id' => $this->userId,
+            'chat_id' => $this->chatId
         ];
-    }
-
-    /**
-     * The event's broadcast name.
-     */
-    public function broadcastAs(): string
-    {
-        return 'message.reaction.removed';
     }
 }

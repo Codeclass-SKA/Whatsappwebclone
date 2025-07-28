@@ -16,6 +16,7 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
   const [chatType, setChatType] = useState<'private' | 'group'>('private');
   const [groupName, setGroupName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
@@ -26,10 +27,13 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
   const loadUsers = async () => {
     try {
       setLoading(true);
+      setError('');
       const userList = await userService.getUsers();
-      setUsers(userList);
+      setUsers(userList || []);
     } catch (error) {
       console.error('[NewChatModal] Failed to load users:', error);
+      setError('Error loading users');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -40,9 +44,18 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Show error message when search fails
+  const showSearchError = searchQuery && filteredUsers.length === 0 && !loading && !error;
+
   const handleUserSelect = (user: User) => {
+    setError('');
     if (chatType === 'private') {
-      setSelectedUsers([user]);
+      const isSelected = selectedUsers.find(u => u.id === user.id);
+      if (isSelected) {
+        setSelectedUsers([]);
+      } else {
+        setSelectedUsers([user]);
+      }
     } else {
       const isSelected = selectedUsers.find(u => u.id === user.id);
       if (isSelected) {
@@ -53,14 +66,45 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
     }
   };
 
-  const handleCreateChat = () => {
-    if (selectedUsers.length === 0) return;
+  const handleChatTypeChange = (type: 'private' | 'group') => {
+    setError('');
+    setChatType(type);
+    if (type === 'private' && selectedUsers.length > 1) {
+      setSelectedUsers(selectedUsers.slice(0, 1));
+    }
+  };
+
+  const handleGroupNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError('');
+    setGroupName(e.target.value);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError('');
+    setSearchQuery(e.target.value);
+  };
+
+  const handleCreateChat = async () => {
+    if (selectedUsers.length === 0) {
+      setError('Select at least one user');
+      return;
+    }
     
+    if (chatType === 'group' && !groupName.trim()) {
+      setError('Group name is required');
+      return;
+    }
+    
+    setError('');
     const participantIds = selectedUsers.map(user => user.id);
     const name = chatType === 'group' ? groupName : undefined;
     
-    onCreateChat(chatType, participantIds, name);
-    onClose();
+    try {
+      await onCreateChat(chatType, participantIds, name);
+      onClose();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to create chat');
+    }
   };
 
   const handleClose = () => {
@@ -68,6 +112,7 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
     setSearchQuery('');
     setChatType('private');
     setGroupName('');
+    setError('');
     onClose();
   };
 
@@ -91,6 +136,80 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
           </div>
         </div>
 
+        {/* Selected Users */}
+        {selectedUsers.length > 0 && (
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Selected: {selectedUsers.length}</h3>
+            <div className="flex flex-wrap gap-2">
+              {selectedUsers.map(user => (
+                <div key={user.id} className="flex items-center bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
+                  <span>{user.name}</span>
+                  <button
+                    onClick={() => handleUserSelect(user)}
+                    className="ml-1 text-green-600 hover:text-green-800"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="p-4 text-center text-red-500">
+            {error}
+          </div>
+        )}
+
+        {/* Users List */}
+        <div className="flex-1 overflow-y-auto max-h-64">
+          {loading ? (
+            <div className="p-4 text-center">
+              Loading users...
+            </div>
+          ) : error ? null : filteredUsers.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">
+              No users found
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {filteredUsers.map(user => {
+                const isSelected = selectedUsers.find(u => u.id === user.id);
+                return (
+                  <div
+                    key={user.id}
+                    className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
+                      isSelected ? 'bg-green-50' : ''
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={!!isSelected}
+                        onChange={() => handleUserSelect(user)}
+                        className="mr-3"
+                        aria-label={user.name}
+                      />
+                      <Avatar
+                        src={user.avatar}
+                        alt={user.name}
+                        size="md"
+                        className="mr-3"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{user.name}</h3>
+                        <p className="text-sm text-gray-500">{user.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Chat Type Selection */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex space-x-4">
@@ -99,7 +218,7 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
                 type="radio"
                 value="private"
                 checked={chatType === 'private'}
-                onChange={(e) => setChatType(e.target.value as 'private' | 'group')}
+                onChange={() => handleChatTypeChange('private')}
                 className="mr-2"
               />
               <span className="text-sm">Private Chat</span>
@@ -109,7 +228,7 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
                 type="radio"
                 value="group"
                 checked={chatType === 'group'}
-                onChange={(e) => setChatType(e.target.value as 'private' | 'group')}
+                onChange={() => handleChatTypeChange('group')}
                 className="mr-2"
               />
               <span className="text-sm">Group Chat</span>
@@ -123,8 +242,8 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
             <input
               type="text"
               placeholder="Enter group name"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
+              value={groupName || ''}
+              onChange={handleGroupNameChange}
               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
           </div>
@@ -136,77 +255,9 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
             type="text"
             placeholder="Search users..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
           />
-        </div>
-
-        {/* Selected Users */}
-        {selectedUsers.length > 0 && (
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Selected:</h3>
-            <div className="flex flex-wrap gap-2">
-              {selectedUsers.map(user => (
-                <div key={user.id} className="flex items-center bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                  <span>{user.name}</span>
-                  <button
-                    onClick={() => setSelectedUsers(selectedUsers.filter(u => u.id !== user.id))}
-                    className="ml-1 text-green-600 hover:text-green-800"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Users List */}
-        <div className="flex-1 overflow-y-auto max-h-64">
-          {loading ? (
-            <div className="p-4 text-center">
-              <div className="spinner mx-auto"></div>
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">
-              No users found
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {filteredUsers.map(user => {
-                const isSelected = selectedUsers.find(u => u.id === user.id);
-                return (
-                  <div
-                    key={user.id}
-                    onClick={() => handleUserSelect(user)}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                      isSelected ? 'bg-green-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <Avatar
-                        src={user.avatar}
-                        alt={user.name}
-                        size="md"
-                        className="mr-3"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{user.name}</h3>
-                        <p className="text-sm text-gray-500">{user.email}</p>
-                      </div>
-                      {isSelected && (
-                        <div className="text-green-500">
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         {/* Footer */}
@@ -220,10 +271,9 @@ const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onCreateCh
             </button>
             <button
               onClick={handleCreateChat}
-              disabled={selectedUsers.length === 0 || (chatType === 'group' && !groupName.trim())}
               className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create Chat
+              Create
             </button>
           </div>
         </div>

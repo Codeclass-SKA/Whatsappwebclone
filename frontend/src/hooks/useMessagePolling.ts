@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { chatService } from '../services/chatService';
+import chatService from '../services/chatService';
 import type { Message } from '../types';
 
 interface UseMessagePollingProps {
@@ -12,7 +12,7 @@ interface UseMessagePollingProps {
 export const useMessagePolling = ({ 
   chatId, 
   onMessageReceived, 
-  pollingInterval = 3000 
+  pollingInterval = 10000 // Increased from 3000 to 10000ms (10 seconds)
 }: UseMessagePollingProps) => {
   const { token } = useAuthStore();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);

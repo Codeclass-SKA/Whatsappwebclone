@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Carbon\Carbon;
 
 class ChatParticipant extends Model
 {
@@ -13,97 +14,119 @@ class ChatParticipant extends Model
     protected $fillable = [
         'chat_id',
         'user_id',
-        'role',
         'is_archived',
         'is_muted',
-        'muted_until',
         'is_pinned',
-        'joined_at'
+        'muted_until',
     ];
 
     protected $casts = [
         'is_archived' => 'boolean',
         'is_muted' => 'boolean',
-        'muted_until' => 'datetime',
         'is_pinned' => 'boolean',
-        'joined_at' => 'datetime',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'muted_until' => 'datetime',
     ];
 
-    /**
-     * Get the chat that owns the participant.
-     */
+    protected $attributes = [
+        'is_archived' => false,
+        'is_muted' => false,
+        'is_pinned' => false,
+    ];
+
     public function chat(): BelongsTo
     {
         return $this->belongsTo(Chat::class);
     }
 
-    /**
-     * Get the user that owns the participant.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Scope to get archived participants.
-     */
+    public function scopeMuted($query)
+    {
+        return $query->where('is_muted', true)
+            ->where(function ($q) {
+                $q->whereNull('muted_until')
+                    ->orWhere('muted_until', '>', now());
+            });
+    }
+
+    public function scopeNotMuted($query)
+    {
+        return $query->where('is_muted', false)
+            ->orWhere(function ($q) {
+                $q->where('is_muted', true)
+                    ->where('muted_until', '<=', now());
+            });
+    }
+
     public function scopeArchived($query)
     {
         return $query->where('is_archived', true);
     }
 
-    /**
-     * Scope to get non-archived participants.
-     */
-    public function scopeNotArchived($query)
-    {
-        return $query->where('is_archived', false);
-    }
-
-    /**
-     * Scope to get muted participants.
-     */
-    public function scopeMuted($query)
-    {
-        return $query->where('is_muted', true);
-    }
-
-    /**
-     * Scope to get non-muted participants.
-     */
-    public function scopeNotMuted($query)
-    {
-        return $query->where('is_muted', false);
-    }
-
-    /**
-     * Scope to get pinned participants.
-     */
     public function scopePinned($query)
     {
         return $query->where('is_pinned', true);
     }
 
-    /**
-     * Scope to get non-pinned participants.
-     */
+    public function scopeNotArchived($query)
+    {
+        return $query->where('is_archived', false);
+    }
+
     public function scopeNotPinned($query)
     {
         return $query->where('is_pinned', false);
     }
 
-    /**
-     * Check if mute has expired.
-     */
     public function isMuteExpired(): bool
     {
         if (!$this->is_muted) {
             return false;
         }
 
-        return $this->muted_until && $this->muted_until->isPast();
+        if ($this->muted_until === null) {
+            return false;
+        }
+
+        return $this->muted_until->isPast();
     }
-} 
+
+    public function mute(?Carbon $until = null): void
+    {
+        $this->update([
+            'is_muted' => true,
+            'muted_until' => $until,
+        ]);
+    }
+
+    public function unmute(): void
+    {
+        $this->update([
+            'is_muted' => false,
+            'muted_until' => null,
+        ]);
+    }
+
+    public function archive(): void
+    {
+        $this->update(['is_archived' => true]);
+    }
+
+    public function unarchive(): void
+    {
+        $this->update(['is_archived' => false]);
+    }
+
+    public function pin(): void
+    {
+        $this->update(['is_pinned' => true]);
+    }
+
+    public function unpin(): void
+    {
+        $this->update(['is_pinned' => false]);
+    }
+}

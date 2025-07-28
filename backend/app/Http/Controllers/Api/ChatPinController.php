@@ -75,6 +75,14 @@ class ChatPinController extends Controller
     /**
      * Get pinned chats for the authenticated user
      */
+    public function index(): JsonResponse
+    {
+        return $this->getPinnedChats();
+    }
+    
+    /**
+     * Get pinned chats for the authenticated user
+     */
     public function getPinnedChats(): JsonResponse
     {
         $user = Auth::user();

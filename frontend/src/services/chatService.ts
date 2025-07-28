@@ -9,7 +9,7 @@ export interface CreateChatData {
 
 export interface SendMessageData {
   content: string;
-  message_type?: 'text' | 'image' | 'file' | 'voice' | 'document' | 'audio';
+  type?: 'text' | 'image' | 'file' | 'voice' | 'document' | 'audio';
   file_url?: string;
   reply_to_id?: number;
 }
@@ -20,8 +20,17 @@ class ChatService {
     return response.data.data;
   }
 
-  async createChat(data: CreateChatData): Promise<Chat> {
-    const response = await api.post('/chats', data);
+  async getChat(chatId: number): Promise<Chat> {
+    const response = await api.get(`/chats/${chatId}`);
+    return response.data.data;
+  }
+
+  async createChat(name: string): Promise<Chat> {
+    const response = await api.post('/chats', {
+      type: 'group',
+      name,
+      participant_ids: []
+    });
     return response.data.data;
   }
 
@@ -32,6 +41,23 @@ class ChatService {
 
   async sendMessage(chatId: number, data: SendMessageData): Promise<Message> {
     const response = await api.post(`/chats/${chatId}/messages`, data);
+    return response.data.data;
+  }
+
+  async deleteMessage(messageId: number): Promise<any> {
+    const response = await api.delete(`/messages/${messageId}`);
+    return response.data;
+  }
+
+  async forwardMessage(messageId: number, targetChatId: number): Promise<any> {
+    const response = await api.post(`/messages/${messageId}/forward`, {
+      target_chat_id: targetChatId
+    });
+    return response.data;
+  }
+
+  async searchMessages(query: string): Promise<Message[]> {
+    const response = await api.get(`/messages/search?q=${encodeURIComponent(query)}`);
     return response.data.data;
   }
 
@@ -77,14 +103,28 @@ class ChatService {
   }
 
   // Message Reaction Functions
-  async addReaction(messageId: number, chatId: number, emoji: string): Promise<any> {
+  async addReaction(messageId: number, emoji: string): Promise<any> {
+    const response = await api.post(`/messages/${messageId}/reactions`, {
+      emoji
+    });
+    return response.data;
+  }
+
+  async removeReaction(messageId: number, emoji: string): Promise<any> {
+    const response = await api.delete(`/messages/${messageId}/reactions`, {
+      data: { emoji }
+    });
+    return response.data;
+  }
+
+  async addReactionWithChat(messageId: number, chatId: number, emoji: string): Promise<any> {
     const response = await api.post(`/chats/${chatId}/messages/${messageId}/reactions`, {
       emoji
     });
     return response.data;
   }
 
-  async removeReaction(messageId: number, chatId: number, emoji: string): Promise<any> {
+  async removeReactionWithChat(messageId: number, chatId: number, emoji: string): Promise<any> {
     const response = await api.delete(`/chats/${chatId}/messages/${messageId}/reactions`, {
       data: { emoji }
     });
@@ -108,9 +148,17 @@ class ChatService {
   }
 }
 
-export const chatService = new ChatService();
+const chatService = new ChatService();
 
-// Export individual functions for testing
+// Export individual functions for easier testing
+export const getChats = () => chatService.getChats();
+export const getChat = (chatId: number) => chatService.getChat(chatId);
+export const createChat = (name: string) => chatService.createChat(name);
+export const getMessages = (chatId: number) => chatService.getMessages(chatId);
+export const sendMessage = (chatId: number, data: SendMessageData) => chatService.sendMessage(chatId, data);
+export const deleteMessage = (messageId: number) => chatService.deleteMessage(messageId);
+export const forwardMessage = (messageId: number, targetChatId: number) => chatService.forwardMessage(messageId, targetChatId);
+export const searchMessages = (query: string) => chatService.searchMessages(query);
 export const archiveChat = (chatId: number) => chatService.archiveChat(chatId);
 export const unarchiveChat = (chatId: number) => chatService.unarchiveChat(chatId);
 export const muteChat = (chatId: number) => chatService.muteChat(chatId);
@@ -119,8 +167,8 @@ export const pinChat = (chatId: number) => chatService.pinChat(chatId);
 export const unpinChat = (chatId: number) => chatService.unpinChat(chatId);
 export const exportChat = (chatId: number) => chatService.exportChat(chatId);
 export const getArchivedChats = () => chatService.getArchivedChats();
-export const addReaction = (messageId: number, chatId: number, emoji: string) => chatService.addReaction(messageId, chatId, emoji);
-export const removeReaction = (messageId: number, chatId: number, emoji: string) => chatService.removeReaction(messageId, chatId, emoji);
+export const addReaction = (messageId: number, emoji: string) => chatService.addReaction(messageId, emoji);
+export const removeReaction = (messageId: number, emoji: string) => chatService.removeReaction(messageId, emoji);
 export const getMessageReactions = (messageId: number, chatId: number) => chatService.getMessageReactions(messageId, chatId);
 export const replyToMessage = (chatId: number, data: any) => chatService.replyToMessage(chatId, data);
 export const getRepliesToMessage = (messageId: number, chatId: number) => chatService.getRepliesToMessage(messageId, chatId);

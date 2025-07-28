@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Models\User;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
@@ -14,14 +15,18 @@ class UserTyping implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $typingData;
+    public $user;
+    public $chatId;
+    public $isTyping;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(array $typingData)
+    public function __construct(User $user, int $chatId, bool $isTyping)
     {
-        $this->typingData = $typingData;
+        $this->user = $user;
+        $this->chatId = $chatId;
+        $this->isTyping = $isTyping;
     }
 
     /**
@@ -32,28 +37,21 @@ class UserTyping implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('chat.' . $this->typingData['chat_id']),
+            new PrivateChannel("chat.{$this->chatId}")
         ];
     }
 
     /**
      * Get the data to broadcast.
+     *
+     * @return array<string, mixed>
      */
     public function broadcastWith(): array
     {
         return [
-            'user_id' => $this->typingData['user_id'],
-            'user_name' => $this->typingData['user_name'],
-            'chat_id' => $this->typingData['chat_id'],
-            'is_typing' => $this->typingData['is_typing'],
+            'user_id' => $this->user->id,
+            'chat_id' => $this->chatId,
+            'is_typing' => $this->isTyping
         ];
     }
-
-    /**
-     * The event's broadcast name.
-     */
-    public function broadcastAs(): string
-    {
-        return 'user.typing';
-    }
-} 
+}
