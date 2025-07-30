@@ -44,7 +44,7 @@ describe('Avatar Component', () => {
     it('should apply correct size classes for small avatar', () => {
       render(<Avatar src={null} alt="John Doe" size="sm" />);
       
-      const avatarContainer = screen.getByText('JD').closest('div');
+      const avatarContainer = screen.getByText('JD').closest('.relative');
       expect(avatarContainer?.className).toContain('w-8');
       expect(avatarContainer?.className).toContain('h-8');
     });
@@ -52,7 +52,7 @@ describe('Avatar Component', () => {
     it('should apply correct size classes for medium avatar', () => {
       render(<Avatar src={null} alt="John Doe" size="md" />);
       
-      const avatarContainer = screen.getByText('JD').closest('div');
+      const avatarContainer = screen.getByText('JD').closest('.relative');
       expect(avatarContainer?.className).toContain('w-10');
       expect(avatarContainer?.className).toContain('h-10');
     });
@@ -60,7 +60,7 @@ describe('Avatar Component', () => {
     it('should apply correct size classes for large avatar', () => {
       render(<Avatar src={null} alt="John Doe" size="lg" />);
       
-      const avatarContainer = screen.getByText('JD').closest('div');
+      const avatarContainer = screen.getByText('JD').closest('.relative');
       expect(avatarContainer?.className).toContain('w-12');
       expect(avatarContainer?.className).toContain('h-12');
     });

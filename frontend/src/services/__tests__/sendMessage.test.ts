@@ -1,16 +1,23 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import chatService from '../chatService';
 
-// Mock the entire api module
+// Mock the api module
+const mockApiInstance = {
+  get: jest.fn(),
+  post: jest.fn(),
+  put: jest.fn(),
+  delete: jest.fn(),
+  patch: jest.fn(),
+};
+
 jest.mock('../api', () => ({
-  chatService: {
-    sendMessage: jest.fn()
-  }
+  __esModule: true,
+  default: mockApiInstance,
 }));
 
-describe('Chat Service - Send Message', () => {
-  const mockChatService = chatService as jest.Mocked<typeof chatService>;
+// Import after mocking
+import { sendMessage } from '../chatService';
 
+describe('Chat Service - Send Message', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -31,16 +38,17 @@ describe('Chat Service - Send Message', () => {
       updated_at: '2023-01-01T00:00:00Z'
     };
 
-    mockChatService.sendMessage.mockResolvedValue(mockMessage as any);
+    const mockResponse = { data: { data: mockMessage } };
+    mockApiInstance.post.mockResolvedValue(mockResponse);
 
-    const result = await mockChatService.sendMessage(1, {
+    const result = await sendMessage(1, {
       content: 'Hello world',
-      message_type: 'text'
+      type: 'text'
     });
 
-    expect(mockChatService.sendMessage).toHaveBeenCalledWith(1, {
+    expect(mockApiInstance.post).toHaveBeenCalledWith('/chats/1/messages', {
       content: 'Hello world',
-      message_type: 'text'
+      type: 'text'
     });
 
     expect(result).toEqual(mockMessage);
@@ -63,14 +71,15 @@ describe('Chat Service - Send Message', () => {
       updated_at: '2023-01-01T00:00:00Z'
     };
 
-    mockChatService.sendMessage.mockResolvedValue(mockMessage as any);
+    const mockResponse = { data: { data: mockMessage } };
+    mockApiInstance.post.mockResolvedValue(mockResponse);
 
-    const result = await mockChatService.sendMessage(1, {
+    const result = await sendMessage(1, {
       content: 'Reply message',
       reply_to_id: 1
     });
 
-    expect(mockChatService.sendMessage).toHaveBeenCalledWith(1, {
+    expect(mockApiInstance.post).toHaveBeenCalledWith('/chats/1/messages', {
       content: 'Reply message',
       reply_to_id: 1
     });
@@ -81,20 +90,18 @@ describe('Chat Service - Send Message', () => {
 
   it('should handle send message error gracefully', async () => {
     const mockError = new Error('Validation failed');
+    mockApiInstance.post.mockRejectedValue(mockError);
 
-    mockChatService.sendMessage.mockRejectedValue(mockError);
-
-    await expect(mockChatService.sendMessage(1, {
+    await expect(sendMessage(1, {
       content: ''
     })).rejects.toThrow('Validation failed');
   });
 
   it('should handle network error gracefully', async () => {
     const mockError = new Error('Network Error');
+    mockApiInstance.post.mockRejectedValue(mockError);
 
-    mockChatService.sendMessage.mockRejectedValue(mockError);
-
-    await expect(mockChatService.sendMessage(1, {
+    await expect(sendMessage(1, {
       content: 'Test message'
     })).rejects.toThrow('Network Error');
   });
@@ -116,17 +123,18 @@ describe('Chat Service - Send Message', () => {
       updated_at: '2023-01-01T00:00:00Z'
     };
 
-    mockChatService.sendMessage.mockResolvedValue(mockMessage as any);
+    const mockResponse = { data: { data: mockMessage } };
+    mockApiInstance.post.mockResolvedValue(mockResponse);
 
-    const result = await mockChatService.sendMessage(1, {
+    const result = await sendMessage(1, {
       content: 'File message',
-      message_type: 'file',
+      type: 'file',
       file_url: 'https://example.com/file.pdf'
     });
 
-    expect(mockChatService.sendMessage).toHaveBeenCalledWith(1, {
+    expect(mockApiInstance.post).toHaveBeenCalledWith('/chats/1/messages', {
       content: 'File message',
-      message_type: 'file',
+      type: 'file',
       file_url: 'https://example.com/file.pdf'
     });
 

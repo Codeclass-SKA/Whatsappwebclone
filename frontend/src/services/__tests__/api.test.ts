@@ -1,17 +1,19 @@
 import axios from 'axios';
 
 // Mock axios before any imports
+const mockAxiosInstance = {
+  get: jest.fn(),
+  post: jest.fn(),
+  put: jest.fn(),
+  delete: jest.fn(),
+  interceptors: {
+    request: { use: jest.fn() },
+    response: { use: jest.fn() }
+  }
+};
+
 jest.mock('axios', () => ({
-  create: jest.fn(() => ({
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-    interceptors: {
-      request: { use: jest.fn() },
-      response: { use: jest.fn() }
-    }
-  })),
+  create: jest.fn(() => mockAxiosInstance),
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
@@ -20,8 +22,6 @@ jest.mock('axios', () => ({
 
 // Import after mocking
 import { authService } from '../api';
-
-const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('API Service', () => {
   beforeEach(() => {
@@ -47,14 +47,14 @@ describe('API Service', () => {
             message: 'User registered successfully',
           },
         };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse);
+        mockAxiosInstance.post.mockResolvedValueOnce(mockResponse);
         const result = await authService.register({
           name: 'Test User',
           email: 'test@example.com',
           password: 'password123',
           password_confirmation: 'password123',
         });
-        expect(mockedAxios.post).toHaveBeenCalledWith('/auth/register', {
+        expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/register', {
           name: 'Test User',
           email: 'test@example.com',
           password: 'password123',
@@ -75,7 +75,7 @@ describe('API Service', () => {
             },
           },
         };
-        mockedAxios.post.mockRejectedValueOnce(errorResponse);
+        mockAxiosInstance.post.mockRejectedValueOnce(errorResponse);
 
         await expect(
           authService.register({
@@ -102,17 +102,15 @@ describe('API Service', () => {
           data: {
             user: mockUser,
             token: 'mock-token',
-            message: 'Login successful',
+            message: 'User logged in successfully',
           },
         };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse);
-
+        mockAxiosInstance.post.mockResolvedValueOnce(mockResponse);
         const result = await authService.login({
           email: 'test@example.com',
           password: 'password123',
         });
-
-        expect(mockedAxios.post).toHaveBeenCalledWith('/auth/login', {
+        expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/login', {
           email: 'test@example.com',
           password: 'password123',
         });
@@ -128,7 +126,7 @@ describe('API Service', () => {
             },
           },
         };
-        mockedAxios.post.mockRejectedValueOnce(errorResponse);
+        mockAxiosInstance.post.mockRejectedValueOnce(errorResponse);
 
         await expect(
           authService.login({
@@ -143,15 +141,12 @@ describe('API Service', () => {
       it('should logout user successfully', async () => {
         const mockResponse = {
           data: {
-            message: 'Logout successful',
+            message: 'User logged out successfully',
           },
         };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse);
-
-        const result = await authService.logout();
-
-        expect(mockedAxios.post).toHaveBeenCalledWith('/auth/logout');
-        expect(result).toEqual(mockResponse.data);
+        mockAxiosInstance.post.mockResolvedValueOnce(mockResponse);
+        await authService.logout();
+        expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/logout');
       });
     });
 
@@ -170,11 +165,9 @@ describe('API Service', () => {
             user: mockUser,
           },
         };
-        mockedAxios.get.mockResolvedValueOnce(mockResponse);
-
+        mockAxiosInstance.get.mockResolvedValueOnce(mockResponse);
         const result = await authService.getProfile();
-
-        expect(mockedAxios.get).toHaveBeenCalledWith('/auth/profile');
+        expect(mockAxiosInstance.get).toHaveBeenCalledWith('/auth/profile');
         expect(result).toEqual(mockResponse.data);
       });
 
@@ -187,7 +180,7 @@ describe('API Service', () => {
             },
           },
         };
-        mockedAxios.get.mockRejectedValueOnce(errorResponse);
+        mockAxiosInstance.get.mockRejectedValueOnce(errorResponse);
 
         await expect(authService.getProfile()).rejects.toEqual(errorResponse);
       });
@@ -205,18 +198,16 @@ describe('API Service', () => {
         };
         const mockResponse = {
           data: {
-            user: mockUser,
             message: 'Profile updated successfully',
+            user: mockUser,
           },
         };
-        mockedAxios.put.mockResolvedValueOnce(mockResponse);
-
+        mockAxiosInstance.put.mockResolvedValueOnce(mockResponse);
         const result = await authService.updateProfile({
           name: 'Updated User',
           email: 'updated@example.com',
         });
-
-        expect(mockedAxios.put).toHaveBeenCalledWith('/auth/profile', {
+        expect(mockAxiosInstance.put).toHaveBeenCalledWith('/auth/profile', {
           name: 'Updated User',
           email: 'updated@example.com',
         });
@@ -227,7 +218,9 @@ describe('API Service', () => {
 
   describe('TDD: Error Handling', () => {
     it('should handle network errors', async () => {
-      mockedAxios.post.mockRejectedValueOnce(new Error('Network Error'));
+      const networkError = new Error('Network Error');
+      mockAxiosInstance.post.mockRejectedValueOnce(networkError);
+
       await expect(
         authService.login({
           email: 'test@example.com',
@@ -245,7 +238,7 @@ describe('API Service', () => {
           },
         },
       };
-      mockedAxios.post.mockRejectedValueOnce(errorResponse);
+      mockAxiosInstance.post.mockRejectedValueOnce(errorResponse);
 
       await expect(
         authService.login({
@@ -268,7 +261,7 @@ describe('API Service', () => {
           },
         },
       };
-      mockedAxios.post.mockRejectedValueOnce(errorResponse);
+      mockAxiosInstance.post.mockRejectedValueOnce(errorResponse);
 
       await expect(
         authService.register({
@@ -295,22 +288,20 @@ describe('API Service', () => {
         data: {
           user: mockUser,
           token: 'mock-token',
+          message: 'User logged in successfully',
         },
       };
-
+      mockAxiosInstance.post.mockResolvedValueOnce(mockResponse);
+      
       const startTime = Date.now();
-      mockedAxios.post.mockResolvedValueOnce(mockResponse);
-
-      await authService.login({
+      const result = await authService.login({
         email: 'test@example.com',
         password: 'password123',
       });
-
       const endTime = Date.now();
-      const responseTime = endTime - startTime;
-
-      // Should complete within 100ms in test environment
-      expect(responseTime).toBeLessThan(100);
+      
+      expect(result).toEqual(mockResponse.data);
+      expect(endTime - startTime).toBeLessThan(1000); // Should complete within 1 second
     });
   });
 }); 

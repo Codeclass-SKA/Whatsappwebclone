@@ -11,7 +11,6 @@ import {
   removeReaction,
   getMessageReactions
 } from '../chatService';
-import api from '../api';
 
 // Mock the api module
 jest.mock('../api', () => ({
@@ -25,7 +24,10 @@ jest.mock('../api', () => ({
   },
 }));
 
-const mockedApi = api as jest.Mocked<typeof api>;
+// Import the mocked api after mocking
+import api from '../api';
+
+const mockApi = api as jest.Mocked<typeof api>;
 
 describe('Chat Management Service', () => {
   beforeEach(() => {
@@ -36,18 +38,18 @@ describe('Chat Management Service', () => {
     it('should archive a chat successfully', async () => {
       const chatId = 1;
       const mockResponse = { data: { message: 'Chat archived successfully' } };
-      mockedApi.post.mockResolvedValue(mockResponse);
+      mockApi.post.mockResolvedValue(mockResponse);
 
       const result = await archiveChat(chatId);
 
-      expect(mockedApi.post).toHaveBeenCalledWith(`/chats/${chatId}/archive`);
+      expect(mockApi.post).toHaveBeenCalledWith(`/chats/${chatId}/archive`);
       expect(result).toEqual(mockResponse.data);
     });
 
     it('should handle archive chat error', async () => {
       const chatId = 1;
       const errorMessage = 'Failed to archive chat';
-      mockedApi.post.mockRejectedValue(new Error(errorMessage));
+      mockApi.post.mockRejectedValue(new Error(errorMessage));
 
       await expect(archiveChat(chatId)).rejects.toThrow(errorMessage);
     });
@@ -57,18 +59,18 @@ describe('Chat Management Service', () => {
     it('should unarchive a chat successfully', async () => {
       const chatId = 1;
       const mockResponse = { data: { message: 'Chat unarchived successfully' } };
-      mockedApi.delete.mockResolvedValue(mockResponse);
+      mockApi.delete.mockResolvedValue(mockResponse);
 
       const result = await unarchiveChat(chatId);
 
-      expect(mockedApi.delete).toHaveBeenCalledWith(`/chats/${chatId}/archive`);
+      expect(mockApi.delete).toHaveBeenCalledWith(`/chats/${chatId}/archive`);
       expect(result).toEqual(mockResponse.data);
     });
 
     it('should handle unarchive chat error', async () => {
       const chatId = 1;
       const errorMessage = 'Failed to unarchive chat';
-      mockedApi.delete.mockRejectedValue(new Error(errorMessage));
+      mockApi.delete.mockRejectedValue(new Error(errorMessage));
 
       await expect(unarchiveChat(chatId)).rejects.toThrow(errorMessage);
     });
@@ -78,18 +80,18 @@ describe('Chat Management Service', () => {
     it('should mute a chat successfully', async () => {
       const chatId = 1;
       const mockResponse = { data: { message: 'Chat muted successfully' } };
-      mockedApi.post.mockResolvedValue(mockResponse);
+      mockApi.post.mockResolvedValue(mockResponse);
 
       const result = await muteChat(chatId);
 
-      expect(mockedApi.post).toHaveBeenCalledWith(`/chats/${chatId}/mute`);
+      expect(mockApi.post).toHaveBeenCalledWith(`/chats/${chatId}/mute`);
       expect(result).toEqual(mockResponse.data);
     });
 
     it('should handle mute chat error', async () => {
       const chatId = 1;
       const errorMessage = 'Failed to mute chat';
-      mockedApi.post.mockRejectedValue(new Error(errorMessage));
+      mockApi.post.mockRejectedValue(new Error(errorMessage));
 
       await expect(muteChat(chatId)).rejects.toThrow(errorMessage);
     });
@@ -99,18 +101,18 @@ describe('Chat Management Service', () => {
     it('should unmute a chat successfully', async () => {
       const chatId = 1;
       const mockResponse = { data: { message: 'Chat unmuted successfully' } };
-      mockedApi.delete.mockResolvedValue(mockResponse);
+      mockApi.delete.mockResolvedValue(mockResponse);
 
       const result = await unmuteChat(chatId);
 
-      expect(mockedApi.delete).toHaveBeenCalledWith(`/chats/${chatId}/mute`);
+      expect(mockApi.delete).toHaveBeenCalledWith(`/chats/${chatId}/mute`);
       expect(result).toEqual(mockResponse.data);
     });
 
     it('should handle unmute chat error', async () => {
       const chatId = 1;
       const errorMessage = 'Failed to unmute chat';
-      mockedApi.delete.mockRejectedValue(new Error(errorMessage));
+      mockApi.delete.mockRejectedValue(new Error(errorMessage));
 
       await expect(unmuteChat(chatId)).rejects.toThrow(errorMessage);
     });
@@ -120,18 +122,18 @@ describe('Chat Management Service', () => {
     it('should pin a chat successfully', async () => {
       const chatId = 1;
       const mockResponse = { data: { message: 'Chat pinned successfully' } };
-      mockedApi.post.mockResolvedValue(mockResponse);
+      mockApi.post.mockResolvedValue(mockResponse);
 
       const result = await pinChat(chatId);
 
-      expect(mockedApi.post).toHaveBeenCalledWith(`/chats/${chatId}/pin`);
+      expect(mockApi.post).toHaveBeenCalledWith(`/chats/${chatId}/pin`);
       expect(result).toEqual(mockResponse.data);
     });
 
     it('should handle pin chat error', async () => {
       const chatId = 1;
       const errorMessage = 'Failed to pin chat';
-      mockedApi.post.mockRejectedValue(new Error(errorMessage));
+      mockApi.post.mockRejectedValue(new Error(errorMessage));
 
       await expect(pinChat(chatId)).rejects.toThrow(errorMessage);
     });
@@ -141,18 +143,18 @@ describe('Chat Management Service', () => {
     it('should unpin a chat successfully', async () => {
       const chatId = 1;
       const mockResponse = { data: { message: 'Chat unpinned successfully' } };
-      mockedApi.delete.mockResolvedValue(mockResponse);
+      mockApi.delete.mockResolvedValue(mockResponse);
 
       const result = await unpinChat(chatId);
 
-      expect(mockedApi.delete).toHaveBeenCalledWith(`/chats/${chatId}/pin`);
+      expect(mockApi.delete).toHaveBeenCalledWith(`/chats/${chatId}/pin`);
       expect(result).toEqual(mockResponse.data);
     });
 
     it('should handle unpin chat error', async () => {
       const chatId = 1;
       const errorMessage = 'Failed to unpin chat';
-      mockedApi.delete.mockRejectedValue(new Error(errorMessage));
+      mockApi.delete.mockRejectedValue(new Error(errorMessage));
 
       await expect(unpinChat(chatId)).rejects.toThrow(errorMessage);
     });
@@ -161,24 +163,19 @@ describe('Chat Management Service', () => {
   describe('Export Chat', () => {
     it('should export a chat successfully', async () => {
       const chatId = 1;
-      const mockResponse = { 
-        data: { 
-          download_url: 'https://example.com/chat-export.zip',
-          message: 'Chat exported successfully' 
-        } 
-      };
-      mockedApi.post.mockResolvedValue(mockResponse);
+      const mockResponse = { data: { message: 'Chat exported successfully', file_url: 'export.pdf' } };
+      mockApi.post.mockResolvedValue(mockResponse);
 
       const result = await exportChat(chatId);
 
-      expect(mockedApi.post).toHaveBeenCalledWith(`/chats/${chatId}/export`);
+      expect(mockApi.post).toHaveBeenCalledWith(`/chats/${chatId}/export`);
       expect(result).toEqual(mockResponse.data);
     });
 
     it('should handle export chat error', async () => {
       const chatId = 1;
       const errorMessage = 'Failed to export chat';
-      mockedApi.post.mockRejectedValue(new Error(errorMessage));
+      mockApi.post.mockRejectedValue(new Error(errorMessage));
 
       await expect(exportChat(chatId)).rejects.toThrow(errorMessage);
     });
@@ -186,33 +183,22 @@ describe('Chat Management Service', () => {
 
   describe('Get Archived Chats', () => {
     it('should get archived chats successfully', async () => {
-      const mockArchivedChats = [
-        {
-          id: 1,
-          name: 'Archived Chat 1',
-          type: 'private',
-          created_by: 1,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z',
-          is_archived: true,
-          is_muted: false,
-          is_pinned: false,
-          participants: [],
-          last_message: null,
-        }
+      const mockChats = [
+        { id: 1, name: 'Archived Chat 1', type: 'private' },
+        { id: 2, name: 'Archived Chat 2', type: 'group' }
       ];
-      const mockResponse = { data: { data: mockArchivedChats } };
-      mockedApi.get.mockResolvedValue(mockResponse);
+      const mockResponse = { data: { data: mockChats } };
+      mockApi.get.mockResolvedValue(mockResponse);
 
       const result = await getArchivedChats();
 
-      expect(mockedApi.get).toHaveBeenCalledWith('/chats/archived');
-      expect(result).toEqual(mockArchivedChats);
+      expect(mockApi.get).toHaveBeenCalledWith('/chats/archived');
+      expect(result).toEqual(mockChats);
     });
 
     it('should handle get archived chats error', async () => {
       const errorMessage = 'Failed to get archived chats';
-      mockedApi.get.mockRejectedValue(new Error(errorMessage));
+      mockApi.get.mockRejectedValue(new Error(errorMessage));
 
       await expect(getArchivedChats()).rejects.toThrow(errorMessage);
     });
@@ -222,14 +208,13 @@ describe('Chat Management Service', () => {
     describe('Add Reaction', () => {
       it('should add reaction successfully', async () => {
         const messageId = 1;
-        const chatId = 1;
         const emoji = '👍';
-        const mockResponse = { data: { success: true } };
-        mockedApi.post.mockResolvedValue(mockResponse);
+        const mockResponse = { data: { message: 'Reaction added successfully' } };
+        mockApi.post.mockResolvedValue(mockResponse);
 
-        const result = await addReaction(messageId, chatId, emoji);
+        const result = await addReaction(messageId, emoji);
 
-        expect(mockedApi.post).toHaveBeenCalledWith(`/chats/${chatId}/messages/${messageId}/reactions`, {
+        expect(mockApi.post).toHaveBeenCalledWith(`/messages/${messageId}/reactions`, {
           emoji
         });
         expect(result).toEqual(mockResponse.data);
@@ -237,26 +222,24 @@ describe('Chat Management Service', () => {
 
       it('should handle add reaction error', async () => {
         const messageId = 1;
-        const chatId = 1;
         const emoji = '👍';
         const errorMessage = 'Failed to add reaction';
-        mockedApi.post.mockRejectedValue(new Error(errorMessage));
+        mockApi.post.mockRejectedValue(new Error(errorMessage));
 
-        await expect(addReaction(messageId, chatId, emoji)).rejects.toThrow(errorMessage);
+        await expect(addReaction(messageId, emoji)).rejects.toThrow(errorMessage);
       });
     });
 
     describe('Remove Reaction', () => {
       it('should remove reaction successfully', async () => {
         const messageId = 1;
-        const chatId = 1;
         const emoji = '👍';
-        const mockResponse = { data: { success: true } };
-        mockedApi.delete.mockResolvedValue(mockResponse);
+        const mockResponse = { data: { message: 'Reaction removed successfully' } };
+        mockApi.delete.mockResolvedValue(mockResponse);
 
-        const result = await removeReaction(messageId, chatId, emoji);
+        const result = await removeReaction(messageId, emoji);
 
-        expect(mockedApi.delete).toHaveBeenCalledWith(`/chats/${chatId}/messages/${messageId}/reactions`, {
+        expect(mockApi.delete).toHaveBeenCalledWith(`/messages/${messageId}/reactions`, {
           data: { emoji }
         });
         expect(result).toEqual(mockResponse.data);
@@ -264,12 +247,11 @@ describe('Chat Management Service', () => {
 
       it('should handle remove reaction error', async () => {
         const messageId = 1;
-        const chatId = 1;
         const emoji = '👍';
         const errorMessage = 'Failed to remove reaction';
-        mockedApi.delete.mockRejectedValue(new Error(errorMessage));
+        mockApi.delete.mockRejectedValue(new Error(errorMessage));
 
-        await expect(removeReaction(messageId, chatId, emoji)).rejects.toThrow(errorMessage);
+        await expect(removeReaction(messageId, emoji)).rejects.toThrow(errorMessage);
       });
     });
 
@@ -278,23 +260,23 @@ describe('Chat Management Service', () => {
         const messageId = 1;
         const chatId = 1;
         const mockReactions = [
-          { id: 1, emoji: '👍', user_id: 1, user: { name: 'John' } },
-          { id: 2, emoji: '❤️', user_id: 2, user: { name: 'Jane' } },
+          { id: 1, emoji: '👍', user_id: 1 },
+          { id: 2, emoji: '❤️', user_id: 2 }
         ];
         const mockResponse = { data: { data: mockReactions } };
-        mockedApi.get.mockResolvedValue(mockResponse);
+        mockApi.get.mockResolvedValue(mockResponse);
 
         const result = await getMessageReactions(messageId, chatId);
 
-        expect(mockedApi.get).toHaveBeenCalledWith(`/chats/${chatId}/messages/${messageId}/reactions`);
+        expect(mockApi.get).toHaveBeenCalledWith(`/chats/${chatId}/messages/${messageId}/reactions`);
         expect(result).toEqual(mockReactions);
       });
 
       it('should handle get message reactions error', async () => {
         const messageId = 1;
         const chatId = 1;
-        const errorMessage = 'Failed to get reactions';
-        mockedApi.get.mockRejectedValue(new Error(errorMessage));
+        const errorMessage = 'Failed to get message reactions';
+        mockApi.get.mockRejectedValue(new Error(errorMessage));
 
         await expect(getMessageReactions(messageId, chatId)).rejects.toThrow(errorMessage);
       });

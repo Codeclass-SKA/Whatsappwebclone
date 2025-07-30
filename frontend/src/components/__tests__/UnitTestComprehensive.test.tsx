@@ -459,36 +459,67 @@ describe('Unit Tests: Component Functionality', () => {
 
   describe('TDD: ForwardMessageModal Component', () => {
     const mockChats = [
-      { id: 1, name: 'Chat 1' },
-      { id: 2, name: 'Chat 2' },
+      { id: 1, name: 'Chat 1', type: 'private', participants: [], avatar: null },
+      { id: 2, name: 'Chat 2', type: 'group', participants: [], avatar: null },
     ];
 
-    it('should render modal with chat list', () => {
+    const mockMessage = {
+      id: 1,
+      chat_id: 3,
+      sender_id: 1,
+      content: 'Test message to forward',
+      message_type: 'text',
+      user: { id: 1, name: 'John Doe' },
+      created_at: '2023-01-01T12:00:00Z',
+      updated_at: '2023-01-01T12:00:00Z',
+      reply_to_id: null,
+      reply_to: null,
+      forwarded_from: null,
+      forwarded_from_message: null,
+      is_deleted: false,
+      deleted_for_all: false,
+      reactions: [],
+    };
+
+    // Mock chatService
+    jest.mock('../../services/chatService', () => ({
+      getChats: jest.fn(() => Promise.resolve(mockChats)),
+    }));
+
+    it('should render modal with chat list', async () => {
       render(
         <ForwardMessageModal
           isOpen={true}
-          chats={mockChats}
+          message={mockMessage}
           onForward={jest.fn()}
           onClose={jest.fn()}
         />
       );
-      expect(screen.getByText(/forward message/i)).toBeInTheDocument();
-      expect(screen.getByText('Chat 1')).toBeInTheDocument();
-      expect(screen.getByText('Chat 2')).toBeInTheDocument();
+      
+      await waitFor(() => {
+        expect(screen.getByText('Forward Message')).toBeInTheDocument();
+        expect(screen.getByText('Chat 1')).toBeInTheDocument();
+        expect(screen.getByText('Chat 2')).toBeInTheDocument();
+      });
     });
 
-    it('should call onForward when chat is selected', () => {
+    it('should call onForward when chat is selected', async () => {
       const mockOnForward = jest.fn();
       render(
         <ForwardMessageModal
           isOpen={true}
-          chats={mockChats}
+          message={mockMessage}
           onForward={mockOnForward}
           onClose={jest.fn()}
         />
       );
       
+      await waitFor(() => {
+        expect(screen.getByText('Chat 1')).toBeInTheDocument();
+      });
+      
       fireEvent.click(screen.getByText('Chat 1'));
+      fireEvent.click(screen.getByText('Forward'));
       expect(mockOnForward).toHaveBeenCalledWith(1);
     });
 
@@ -496,42 +527,86 @@ describe('Unit Tests: Component Functionality', () => {
       render(
         <ForwardMessageModal
           isOpen={false}
-          chats={mockChats}
+          message={mockMessage}
           onForward={jest.fn()}
           onClose={jest.fn()}
         />
       );
-      expect(screen.queryByText(/forward message/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('Forward Message')).not.toBeInTheDocument();
     });
   });
 
   describe('TDD: MessageSearch Component', () => {
-    const mockOnSearch = jest.fn();
+    const mockOnMessageSelect = jest.fn();
+    const mockOnClose = jest.fn();
 
     beforeEach(() => {
-      mockOnSearch.mockClear();
+      mockOnMessageSelect.mockClear();
+      mockOnClose.mockClear();
+      // Mock fetch
+      global.fetch = jest.fn();
     });
 
     it('should render search input', () => {
-      render(<MessageSearch onSearch={mockOnSearch} />);
-      expect(screen.getByPlaceholderText(/search messages/i)).toBeInTheDocument();
+      render(
+        <MessageSearch
+          chatId={1}
+          isOpen={true}
+          onClose={mockOnClose}
+          onMessageSelect={mockOnMessageSelect}
+        />
+      );
+      expect(screen.getByPlaceholderText('Search messages...')).toBeInTheDocument();
     });
 
-    it('should call onSearch when input changes', async () => {
-      render(<MessageSearch onSearch={mockOnSearch} />);
-      const searchInput = screen.getByPlaceholderText(/search messages/i);
+    it('should call onMessageSelect when message is clicked', async () => {
+      const mockResults = [
+        {
+          id: 1,
+          content: 'Test message',
+          user: { name: 'John Doe', avatar: null },
+          created_at: '2023-01-01T12:00:00Z',
+        }
+      ];
 
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: mockResults }),
+      });
+
+      render(
+        <MessageSearch
+          chatId={1}
+          isOpen={true}
+          onClose={mockOnClose}
+          onMessageSelect={mockOnMessageSelect}
+        />
+      );
+
+      const searchInput = screen.getByPlaceholderText('Search messages...');
       fireEvent.change(searchInput, { target: { value: 'test' } });
 
       await waitFor(() => {
-        expect(mockOnSearch).toHaveBeenCalledWith('test');
+        expect(screen.getByText('Test message')).toBeInTheDocument();
       });
+
+      fireEvent.click(screen.getByText('Test message'));
+      expect(mockOnMessageSelect).toHaveBeenCalledWith(mockResults[0]);
     });
 
     it('should debounce search calls', async () => {
       jest.useFakeTimers();
-      render(<MessageSearch onSearch={mockOnSearch} />);
-      const searchInput = screen.getByPlaceholderText(/search messages/i);
+      
+      render(
+        <MessageSearch
+          chatId={1}
+          isOpen={true}
+          onClose={mockOnClose}
+          onMessageSelect={mockOnMessageSelect}
+        />
+      );
+
+      const searchInput = screen.getByPlaceholderText('Search messages...');
 
       fireEvent.change(searchInput, { target: { value: 't' } });
       fireEvent.change(searchInput, { target: { value: 'te' } });
@@ -540,11 +615,26 @@ describe('Unit Tests: Component Functionality', () => {
       jest.runAllTimers();
 
       await waitFor(() => {
-        expect(mockOnSearch).toHaveBeenCalledTimes(1);
-        expect(mockOnSearch).toHaveBeenCalledWith('test');
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/messages/search?q=test&chat_id=1'),
+          expect.any(Object)
+        );
       });
 
       jest.useRealTimers();
+    });
+
+    it('should not render when isOpen is false', () => {
+      render(
+        <MessageSearch
+          chatId={1}
+          isOpen={false}
+          onClose={mockOnClose}
+          onMessageSelect={mockOnMessageSelect}
+        />
+      );
+      expect(screen.queryByPlaceholderText('Search messages...')).not.toBeInTheDocument();
     });
   });
 }); 

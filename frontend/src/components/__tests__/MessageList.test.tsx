@@ -117,8 +117,8 @@ describe('MessageList Component', () => {
     it('should show message timestamps', () => {
       render(<MessageList {...defaultProps} />);
       
-      // Should show formatted time
-      expect(screen.getAllByText('08:00 PM')).toHaveLength(2);
+      // Should show formatted time - the test data has 12:00:00Z which formats to "12:00 PM"
+      expect(screen.getAllByText('12:00 PM')).toHaveLength(2);
     });
 
     it('should handle empty messages array', () => {
