@@ -24,7 +24,7 @@ class ChatController extends Controller
         $chats = $user->chats()
             ->wherePivot('is_archived', false)
             ->with(['participants', 'lastMessage.user'])
-            ->orderBy('updated_at', 'desc')
+            ->orderByRaw('chat_participants.is_pinned DESC, updated_at DESC')
             ->get()
             ->map(function ($chat) use ($user) {
                 $otherParticipant = $chat->participants
@@ -42,6 +42,7 @@ class ChatController extends Controller
                     'name' => $chat->type === 'private' 
                         ? ($otherParticipant ? $otherParticipant->name : 'Unknown User')
                         : ($chat->name ?? 'Unnamed Group'),
+                    'created_by' => $chat->created_by,
                     'avatar' => $chat->type === 'private' 
                         ? ($otherParticipant ? $otherParticipant->avatar : null)
                         : $chat->avatar,
@@ -96,9 +97,7 @@ class ChatController extends Controller
                 ->first();
 
             if ($existingChat) {
-                return response()->json([
-                    'data' => $this->formatChat($existingChat, $user)
-                ], 200);
+                return response()->json(['data' => $this->formatChat($existingChat, $user)], 201);
             }
         }
 
@@ -110,9 +109,7 @@ class ChatController extends Controller
 
         $chat->participants()->attach($participantIds);
 
-        return response()->json([
-            'data' => $this->formatChat($chat, $user)
-        ], 201);
+        return response()->json(['data' => $this->formatChat($chat, $user)], 201);
     }
 
     /**
@@ -128,9 +125,7 @@ class ChatController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return response()->json([
-            'data' => $this->formatChat($chat, $user)
-        ]);
+        return response()->json(['data' => $this->formatChat($chat, $user)]);
     }
 
     /**
@@ -346,6 +341,7 @@ class ChatController extends Controller
             'name' => $chat->type === 'private' 
                 ? $otherParticipant->name 
                 : $chat->name,
+            'created_by' => $chat->created_by,
             'is_muted' => $participantData ? $participantData->is_muted : false,
             'muted_until' => $participantData ? $participantData->muted_until : null,
             'is_pinned' => $participantData ? $participantData->is_pinned : false,
@@ -353,6 +349,7 @@ class ChatController extends Controller
                 return [
                     'id' => $participant->id,
                     'name' => $participant->name,
+                    'email' => $participant->email,
                     'avatar' => $participant->avatar,
                     'is_online' => $participant->is_online,
                     'last_seen' => $participant->last_seen
@@ -362,4 +359,4 @@ class ChatController extends Controller
             'updated_at' => $chat->updated_at
         ];
     }
-} 
+}

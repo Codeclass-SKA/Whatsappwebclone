@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Broadcast;
 
 class UserController extends Controller
 {
@@ -61,7 +62,8 @@ class UserController extends Controller
             'last_seen' => now()
         ]);
 
-        broadcast(new UserOnlineStatus($user, $request->is_online))->toOthers();
+        // Broadcast user online status change
+        broadcast(new \App\Events\UserOnlineStatus($user, $request->is_online))->toOthers();
 
         return response()->json([
             'message' => 'Status updated successfully',

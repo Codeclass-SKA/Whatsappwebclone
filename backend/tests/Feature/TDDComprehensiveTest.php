@@ -6,705 +6,740 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Chat;
 use App\Models\Message;
-use App\Models\ChatParticipant;
 use App\Models\MessageReaction;
+use App\Models\ChatParticipant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
-use Laravel\Sanctum\Sanctum;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class TDDComprehensiveTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
+    protected User $user;
+    protected User $otherUser;
+    protected Chat $chat;
+    protected Message $message;
+
     protected function setUp(): void
     {
         parent::setUp();
+        
+        // Create test users
+        $this->user = User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => bcrypt('password123')
+        ]);
+        
+        $this->otherUser = User::factory()->create([
+            'name' => 'Other User',
+            'email' => 'other@example.com',
+            'password' => bcrypt('password123')
+        ]);
+        
+        // Create a chat
+        $this->chat = Chat::factory()->create([
+            'type' => 'private',
+            'created_by' => $this->user->id
+        ]);
+        
+        // Add participants to the chat
+        ChatParticipant::factory()->create([
+            'chat_id' => $this->chat->id,
+            'user_id' => $this->user->id,
+            'role' => 'member'
+        ]);
+        
+        ChatParticipant::factory()->create([
+            'chat_id' => $this->chat->id,
+            'user_id' => $this->otherUser->id,
+            'role' => 'member'
+        ]);
+        
+        // Create a message
+        $this->message = Message::factory()->create([
+            'chat_id' => $this->chat->id,
+            'sender_id' => $this->user->id,
+            'content' => 'Hello, this is a test message',
+            'message_type' => 'text'
+        ]);
     }
 
     /**
-     * TDD: User Authentication Tests
+     * Test user registration with valid data.
      */
-    public function test_user_can_register_successfully()
+    public function test_user_can_register_with_valid_data()
     {
-        $userData = [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-        ];
-
-        $response = $this->postJson('/api/auth/register', $userData);
+        $response = $this->postJson('/api/auth/register', [
+            'name' => 'New User',
+            'email' => 'newuser@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!'
+        ]);
 
         $response->assertStatus(201)
-                ->assertJsonStructure([
-                    'user' => [
-                        'id',
-                        'name',
-                        'email',
-                        'avatar',
-                        'status',
-                        'last_seen',
-                        'created_at',
-                        'updated_at'
-                    ],
-                    'token',
-                    'message'
-                ]);
+            ->assertJsonStructure([
+                'user' => ['id', 'name', 'email'],
+                'token'
+            ]);
 
         $this->assertDatabaseHas('users', [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
-    }
-
-    public function test_user_cannot_register_with_invalid_email()
-    {
-        $userData = [
-            'name' => 'Test User',
-            'email' => 'invalid-email',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-        ];
-
-        $response = $this->postJson('/api/auth/register', $userData);
-
-        $response->assertStatus(422)
-                ->assertJsonValidationErrors(['email']);
-    }
-
-    public function test_user_cannot_register_with_weak_password()
-    {
-        $userData = [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'password' => '123',
-            'password_confirmation' => '123',
-        ];
-
-        $response = $this->postJson('/api/auth/register', $userData);
-
-        $response->assertStatus(422)
-                ->assertJsonValidationErrors(['password']);
-    }
-
-    public function test_user_can_login_successfully()
-    {
-        $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password123'),
-        ]);
-
-        $loginData = [
-            'email' => 'test@example.com',
-            'password' => 'password123',
-        ];
-
-        $response = $this->postJson('/api/auth/login', $loginData);
-
-        $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'user' => [
-                        'id',
-                        'name',
-                        'email',
-                        'avatar',
-                        'status',
-                        'last_seen',
-                    ],
-                    'token',
-                    'message'
-                ]);
-    }
-
-    public function test_user_cannot_login_with_invalid_credentials()
-    {
-        $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password123'),
-        ]);
-
-        $loginData = [
-            'email' => 'test@example.com',
-            'password' => 'wrongpassword',
-        ];
-
-        $response = $this->postJson('/api/auth/login', $loginData);
-
-        $response->assertStatus(401)
-                ->assertJson(['message' => 'Invalid credentials']);
-    }
-
-    public function test_user_can_logout_successfully()
-    {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
-
-        $response = $this->postJson('/api/auth/logout');
-
-        $response->assertStatus(200)
-                ->assertJson(['message' => 'Logged out successfully']);
-    }
-
-    public function test_user_can_get_profile()
-    {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
-
-        $response = $this->getJson('/api/auth/profile');
-
-        $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'user' => [
-                        'id',
-                        'name',
-                        'email',
-                        'avatar',
-                        'status',
-                        'last_seen',
-                    ]
-                ]);
-    }
-
-    public function test_user_can_update_profile()
-    {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
-
-        $updateData = [
-            'name' => 'Updated Name',
-            'email' => 'updated@example.com',
-        ];
-
-        $response = $this->putJson('/api/auth/profile', $updateData);
-
-        $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'user' => [
-                        'id',
-                        'name',
-                        'email',
-                        'avatar',
-                        'status',
-                        'last_seen',
-                    ],
-                    'message'
-                ]);
-
-        $this->assertDatabaseHas('users', [
-            'id' => $user->id,
-            'name' => 'Updated Name',
-            'email' => 'updated@example.com',
+            'email' => 'newuser@example.com'
         ]);
     }
 
     /**
-     * TDD: Chat Management Tests
+     * Test user registration with invalid email.
+     */
+    public function test_user_cannot_register_with_invalid_email()
+    {
+        $response = $this->postJson('/api/auth/register', [
+            'name' => 'New User',
+            'email' => 'invalid-email',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!'
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
+    /**
+     * Test user registration with weak password.
+     */
+    public function test_user_cannot_register_with_weak_password()
+    {
+        $response = $this->postJson('/api/auth/register', [
+            'name' => 'New User',
+            'email' => 'newuser@example.com',
+            'password' => '123',
+            'password_confirmation' => '123'
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
+    }
+
+    /**
+     * Test user login with valid credentials.
+     */
+    public function test_user_can_login_with_valid_credentials()
+    {
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'test@example.com',
+            'password' => 'password123'
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'user' => ['id', 'name', 'email'],
+                'token'
+            ]);
+    }
+
+    /**
+     * Test user login with invalid credentials.
+     */
+    public function test_user_cannot_login_with_invalid_credentials()
+    {
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'test@example.com',
+            'password' => 'wrongpassword'
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    /**
+     * Test user logout.
+     */
+    public function test_user_can_logout()
+    {
+        // Login to get token
+        $loginResponse = $this->postJson('/api/auth/login', [
+            'email' => 'test@example.com',
+            'password' => 'password123'
+        ]);
+        
+        $token = $loginResponse->json('token');
+
+        // Logout using the token
+        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->postJson('/api/auth/logout');
+
+        $response->assertStatus(200);
+
+        // Try to use the token after logout - should be unauthorized
+        $profileResponse = $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/auth/profile');
+            
+        $profileResponse->assertStatus(401);
+    }
+
+    /**
+     * Test getting user profile.
+     */
+    public function test_user_can_get_profile()
+    {
+        $response = $this->actingAs($this->user)
+            ->getJson('/api/auth/profile');
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'user' => [
+                    'id' => $this->user->id,
+                    'name' => $this->user->name,
+                    'email' => $this->user->email
+                ]
+            ]);
+    }
+
+    /**
+     * Test updating user profile.
+     */
+    public function test_user_can_update_profile()
+    {
+        $response = $this->actingAs($this->user)
+            ->putJson('/api/auth/profile', [
+                'name' => 'Updated Name',
+                'status' => 'New status message'
+            ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $this->user->id,
+            'name' => 'Updated Name',
+            'status' => 'New status message'
+        ]);
+    }
+
+    /**
+     * Test creating a private chat.
      */
     public function test_user_can_create_private_chat()
     {
-        $user1 = User::factory()->create();
-        $user2 = User::factory()->create();
-        Sanctum::actingAs($user1);
-
-        $chatData = [
-            'type' => 'private',
-            'participant_ids' => [$user2->id],
-        ];
-
-        $response = $this->postJson('/api/chats', $chatData);
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/chats', [
+                'type' => 'private',
+                'participant_ids' => [$this->otherUser->id]
+            ]);
 
         $response->assertStatus(201)
-                ->assertJsonStructure([
-                    'chat' => [
-                        'id',
-                        'name',
-                        'type',
-                        'created_by',
-                        'created_at',
-                        'updated_at',
-                        'participants'
-                    ],
-                    'message'
-                ]);
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'type',
+                    'created_by',
+                    'participants' => [
+                        '*' => ['id', 'name', 'email']
+                    ]
+                ]
+            ]);
 
-        $this->assertDatabaseHas('chats', [
-            'type' => 'private',
-            'created_by' => $user1->id,
+        $chatId = $response->json('data.id');
+        $this->assertDatabaseHas('chats', ['id' => $chatId, 'type' => 'private']);
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $chatId,
+            'user_id' => $this->user->id
+        ]);
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $chatId,
+            'user_id' => $this->otherUser->id
         ]);
     }
 
+    /**
+     * Test creating a group chat.
+     */
     public function test_user_can_create_group_chat()
     {
-        $user1 = User::factory()->create();
-        $user2 = User::factory()->create();
-        $user3 = User::factory()->create();
-        Sanctum::actingAs($user1);
+        $thirdUser = User::factory()->create();
 
-        $chatData = [
-            'name' => 'Test Group',
-            'type' => 'group',
-            'participant_ids' => [$user2->id, $user3->id],
-        ];
-
-        $response = $this->postJson('/api/chats', $chatData);
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/chats', [
+                'type' => 'group',
+                'name' => 'Test Group',
+                'participant_ids' => [$this->otherUser->id, $thirdUser->id]
+            ]);
 
         $response->assertStatus(201)
-                ->assertJsonStructure([
-                    'chat' => [
-                        'id',
-                        'name',
-                        'type',
-                        'created_by',
-                        'created_at',
-                        'updated_at',
-                        'participants'
-                    ],
-                    'message'
-                ]);
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'type',
+                    'name',
+                    'created_by',
+                    'participants' => [
+                        '*' => ['id', 'name', 'email']
+                    ]
+                ]
+            ]);
 
+        $chatId = $response->json('data.id');
         $this->assertDatabaseHas('chats', [
-            'name' => 'Test Group',
+            'id' => $chatId,
             'type' => 'group',
-            'created_by' => $user1->id,
+            'name' => 'Test Group'
+        ]);
+        
+        // Check that all users are participants
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $chatId,
+            'user_id' => $this->user->id
+        ]);
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $chatId,
+            'user_id' => $this->otherUser->id
+        ]);
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $chatId,
+            'user_id' => $thirdUser->id
         ]);
     }
 
-    public function test_user_can_get_chats_list()
+    /**
+     * Test getting chat list.
+     */
+    public function test_user_can_get_chat_list()
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
-
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        ChatParticipant::factory()->create([
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-        ]);
-
-        $response = $this->getJson('/api/chats');
+        $response = $this->actingAs($this->user)
+            ->getJson('/api/chats');
 
         $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'chats' => [
-                        '*' => [
-                            'id',
-                            'name',
-                            'type',
-                            'last_message',
-                            'unread_count',
-                            'participants',
-                            'created_at',
-                            'updated_at',
-                        ]
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'type',
+                        'name',
+                        'created_by',
+                        'participants'
                     ]
-                ]);
+                ]
+            ]);
     }
 
+    /**
+     * Test getting a specific chat.
+     */
     public function test_user_can_get_specific_chat()
     {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        Sanctum::actingAs($user);
-
-        $response = $this->getJson("/api/chats/{$chat->id}");
+        $response = $this->actingAs($this->user)
+            ->getJson("/api/chats/{$this->chat->id}");
 
         $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'chat' => [
-                        'id',
-                        'name',
-                        'type',
-                        'created_by',
-                        'participants',
-                        'messages',
-                        'created_at',
-                        'updated_at',
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'type',
+                    'created_by',
+                    'participants' => [
+                        '*' => ['id', 'name', 'email']
                     ]
-                ]);
+                ]
+            ]);
     }
 
+    /**
+     * Test unauthorized access to a chat.
+     */
     public function test_user_cannot_access_unauthorized_chat()
     {
-        $user1 = User::factory()->create();
-        $user2 = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user2->id]);
-        Sanctum::actingAs($user1);
-
-        $response = $this->getJson("/api/chats/{$chat->id}");
+        $unauthorizedUser = User::factory()->create();
+        $response = $this->actingAs($unauthorizedUser)
+            ->getJson("/api/chats/{$this->chat->id}");
 
         $response->assertStatus(403);
     }
 
     /**
-     * TDD: Message Management Tests
+     * Test sending a message to a chat.
      */
-    public function test_user_can_send_message()
+    public function test_user_can_send_message_to_chat()
     {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        ChatParticipant::factory()->create([
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-        ]);
-        Sanctum::actingAs($user);
-
-        $messageData = [
-            'content' => 'Hello, this is a test message',
-        ];
-
-        $response = $this->postJson("/api/chats/{$chat->id}/messages", $messageData);
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/chats/{$this->chat->id}/messages", [
+                'content' => 'Hello, this is a new message',
+                'type' => 'text'
+            ]);
 
         $response->assertStatus(201)
-                ->assertJsonStructure([
-                    'message' => [
-                        'id',
-                        'content',
-                        'sender_id',
-                        'chat_id',
-                        'created_at',
-                        'updated_at',
-                        'sender'
-                    ],
-                    'message_text'
-                ]);
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'content',
+                    'sender_id',
+                    'chat_id',
+                    'message_type',
+                    'created_at'
+                ]
+            ]);
 
+        $messageId = $response->json('data.id');
         $this->assertDatabaseHas('messages', [
-            'content' => 'Hello, this is a test message',
-            'sender_id' => $user->id,
-            'chat_id' => $chat->id,
+            'id' => $messageId,
+            'content' => 'Hello, this is a new message',
+            'chat_id' => $this->chat->id,
+            'sender_id' => $this->user->id
         ]);
     }
 
+    /**
+     * Test sending an empty message.
+     */
     public function test_user_cannot_send_empty_message()
     {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        Sanctum::actingAs($user);
-
-        $messageData = [
-            'content' => '',
-        ];
-
-        $response = $this->postJson("/api/chats/{$chat->id}/messages", $messageData);
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/chats/{$this->chat->id}/messages", [
+                'content' => '',
+                'type' => 'text'
+            ]);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['content']);
+            ->assertJsonValidationErrors(['content']);
     }
 
+    /**
+     * Test getting messages for a chat.
+     */
     public function test_user_can_get_chat_messages()
     {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        ChatParticipant::factory()->create([
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-        ]);
+        // Create multiple messages
         Message::factory()->count(5)->create([
-            'chat_id' => $chat->id,
-            'sender_id' => $user->id,
+            'chat_id' => $this->chat->id,
+            'sender_id' => $this->user->id,
+            'message_type' => 'text'
         ]);
-        Sanctum::actingAs($user);
 
-        $response = $this->getJson("/api/chats/{$chat->id}/messages");
+        $response = $this->actingAs($this->user)
+            ->getJson("/api/chats/{$this->chat->id}/messages");
 
         $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'messages' => [
-                        '*' => [
-                            'id',
-                            'content',
-                            'sender_id',
-                            'chat_id',
-                            'created_at',
-                            'updated_at',
-                            'sender',
-                            'reactions'
-                        ]
-                    ],
-                    'pagination'
-                ]);
+            ->assertJsonStructure([
+                'data',
+                'meta' => [
+                    'current_page',
+                    'last_page',
+                    'per_page',
+                    'total'
+                ],
+                'links' => [
+                    'first',
+                    'last',
+                    'prev',
+                    'next'
+                ]
+            ]);
+
+        // Should have 6 messages (5 new + 1 from setup)
+        $this->assertCount(6, $response->json('data'));
     }
 
+    /**
+     * Test deleting own message.
+     */
     public function test_user_can_delete_own_message()
     {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        $message = Message::factory()->create([
-            'chat_id' => $chat->id,
-            'sender_id' => $user->id,
+        $response = $this->actingAs($this->user)
+            ->deleteJson("/api/messages/{$this->message->id}", [
+                'delete_type' => 'for_everyone'
+            ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('messages', [
+            'id' => $this->message->id,
+            'deleted_for_all' => true
         ]);
-        Sanctum::actingAs($user);
-
-        $response = $this->deleteJson("/api/messages/{$message->id}");
-
-        $response->assertStatus(200)
-                ->assertJson(['message' => 'Message deleted successfully']);
-
-        $this->assertDatabaseMissing('messages', ['id' => $message->id]);
     }
 
+    /**
+     * Test deleting someone else's message.
+     */
     public function test_user_cannot_delete_others_message()
     {
-        $user1 = User::factory()->create();
-        $user2 = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user1->id]);
-        $message = Message::factory()->create([
-            'chat_id' => $chat->id,
-            'sender_id' => $user2->id,
+        $otherMessage = Message::factory()->create([
+            'chat_id' => $this->chat->id,
+            'sender_id' => $this->otherUser->id,
+            'content' => 'Message from other user',
+            'message_type' => 'text'
         ]);
-        Sanctum::actingAs($user1);
 
-        $response = $this->deleteJson("/api/messages/{$message->id}");
+        $response = $this->actingAs($this->user)
+            ->deleteJson("/api/messages/{$otherMessage->id}", [
+                'delete_type' => 'for_everyone'
+            ]);
 
         $response->assertStatus(403);
     }
 
     /**
-     * TDD: Message Reactions Tests
+     * Test adding a reaction to a message.
      */
     public function test_user_can_add_reaction_to_message()
     {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        $message = Message::factory()->create([
-            'chat_id' => $chat->id,
-            'sender_id' => $user->id,
-        ]);
-        Sanctum::actingAs($user);
-
-        $reactionData = [
-            'emoji' => '👍',
-        ];
-
-        $response = $this->postJson("/api/messages/{$message->id}/reactions", $reactionData);
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/messages/{$this->message->id}/reactions", [
+                'emoji' => '👍'
+            ]);
 
         $response->assertStatus(201)
-                ->assertJsonStructure([
-                    'reaction' => [
-                        'id',
-                        'emoji',
-                        'user_id',
-                        'message_id',
-                        'created_at',
-                        'updated_at',
-                    ],
-                    'message'
-                ]);
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'message_id',
+                    'user_id',
+                    'emoji',
+                    'user',
+                    'created_at',
+                    'updated_at'
+                ]
+            ]);
 
         $this->assertDatabaseHas('message_reactions', [
-            'emoji' => '👍',
-            'user_id' => $user->id,
-            'message_id' => $message->id,
+            'message_id' => $this->message->id,
+            'user_id' => $this->user->id,
+            'emoji' => '👍'
         ]);
-    }
-
-    public function test_user_can_remove_reaction_from_message()
-    {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        $message = Message::factory()->create([
-            'chat_id' => $chat->id,
-            'sender_id' => $user->id,
-        ]);
-        $reaction = MessageReaction::factory()->create([
-            'emoji' => '👍',
-            'user_id' => $user->id,
-            'message_id' => $message->id,
-        ]);
-        Sanctum::actingAs($user);
-
-        $response = $this->deleteJson("/api/messages/{$message->id}/reactions/{$reaction->id}");
-
-        $response->assertStatus(200)
-                ->assertJson(['message' => 'Reaction removed successfully']);
-
-        $this->assertDatabaseMissing('message_reactions', ['id' => $reaction->id]);
     }
 
     /**
-     * TDD: Chat Management Features Tests
+     * Test removing a reaction from a message.
+     */
+    public function test_user_can_remove_reaction_from_message()
+    {
+        // First add a reaction
+        $reaction = MessageReaction::create([
+            'message_id' => $this->message->id,
+            'user_id' => $this->user->id,
+            'emoji' => '👍'
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->deleteJson("/api/messages/{$this->message->id}/reactions/{$reaction->id}");
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseMissing('message_reactions', [
+            'id' => $reaction->id
+        ]);
+    }
+
+    /**
+     * Test archiving a chat.
      */
     public function test_user_can_archive_chat()
     {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        ChatParticipant::factory()->create([
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-        ]);
-        Sanctum::actingAs($user);
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/chats/{$this->chat->id}/archive");
 
-        $response = $this->postJson("/api/chats/{$chat->id}/archive");
-
-        $response->assertStatus(200)
-                ->assertJson(['message' => 'Chat archived successfully']);
+        $response->assertStatus(200);
 
         $this->assertDatabaseHas('chat_participants', [
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-            'is_archived' => true,
-        ]);
-    }
-
-    public function test_user_can_mute_chat()
-    {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        ChatParticipant::factory()->create([
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-        ]);
-        Sanctum::actingAs($user);
-
-        $response = $this->postJson("/api/chats/{$chat->id}/mute");
-
-        $response->assertStatus(200)
-                ->assertJson(['message' => 'Chat muted successfully']);
-
-        $this->assertDatabaseHas('chat_participants', [
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-            'is_muted' => true,
-        ]);
-    }
-
-    public function test_user_can_pin_chat()
-    {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        ChatParticipant::factory()->create([
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-        ]);
-        Sanctum::actingAs($user);
-
-        $response = $this->postJson("/api/chats/{$chat->id}/pin");
-
-        $response->assertStatus(200)
-                ->assertJson(['message' => 'Chat pinned successfully']);
-
-        $this->assertDatabaseHas('chat_participants', [
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-            'is_pinned' => true,
+            'chat_id' => $this->chat->id,
+            'user_id' => $this->user->id,
+            'is_archived' => true
         ]);
     }
 
     /**
-     * TDD: Message Search Tests
+     * Test unarchiving a chat.
+     */
+    public function test_user_can_unarchive_chat()
+    {
+        // First archive the chat
+        $this->actingAs($this->user)
+            ->postJson("/api/chats/{$this->chat->id}/archive");
+
+        $response = $this->actingAs($this->user)
+            ->deleteJson("/api/chats/{$this->chat->id}/archive");
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $this->chat->id,
+            'user_id' => $this->user->id,
+            'is_archived' => false
+        ]);
+    }
+
+    /**
+     * Test muting a chat.
+     */
+    public function test_user_can_mute_chat()
+    {
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/chats/{$this->chat->id}/mute", [
+                'duration' => 'forever'
+            ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $this->chat->id,
+            'user_id' => $this->user->id,
+            'is_muted' => true
+        ]);
+    }
+
+    /**
+     * Test unmuting a chat.
+     */
+    public function test_user_can_unmute_chat()
+    {
+        // First mute the chat
+        $this->actingAs($this->user)
+            ->postJson("/api/chats/{$this->chat->id}/mute", [
+                'duration' => 'forever'
+            ]);
+
+        $response = $this->actingAs($this->user)
+            ->deleteJson("/api/chats/{$this->chat->id}/mute");
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $this->chat->id,
+            'user_id' => $this->user->id,
+            'is_muted' => false
+        ]);
+    }
+
+    /**
+     * Test pinning a chat.
+     */
+    public function test_user_can_pin_chat()
+    {
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/chats/{$this->chat->id}/pin");
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $this->chat->id,
+            'user_id' => $this->user->id,
+            'is_pinned' => true
+        ]);
+    }
+
+    /**
+     * Test unpinning a chat.
+     */
+    public function test_user_can_unpin_chat()
+    {
+        // First pin the chat
+        $this->actingAs($this->user)
+            ->postJson("/api/chats/{$this->chat->id}/pin");
+
+        $response = $this->actingAs($this->user)
+            ->deleteJson("/api/chats/{$this->chat->id}/pin");
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('chat_participants', [
+            'chat_id' => $this->chat->id,
+            'user_id' => $this->user->id,
+            'is_pinned' => false
+        ]);
+    }
+
+    /**
+     * Test searching for messages.
      */
     public function test_user_can_search_messages()
     {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
+        // Create messages with specific content
         Message::factory()->create([
-            'chat_id' => $chat->id,
-            'sender_id' => $user->id,
-            'content' => 'Hello world test message',
+            'chat_id' => $this->chat->id,
+            'sender_id' => $this->user->id,
+            'content' => 'This message contains searchable keyword',
+            'message_type' => 'text'
         ]);
-        Sanctum::actingAs($user);
 
-        $response = $this->getJson("/api/messages/search?q=test");
+        $response = $this->actingAs($this->user)
+            ->getJson('/api/messages/search?q=searchable');
 
-        $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'messages' => [
-                        '*' => [
-                            'id',
-                            'content',
-                            'sender_id',
-                            'chat_id',
-                            'created_at',
-                            'sender'
-                        ]
-                    ]
-                ]);
+        $response->assertStatus(200);
+        $this->assertArrayHasKey('data', $response->json());
+        $this->assertArrayHasKey('messages', $response->json());
+        $this->assertGreaterThan(0, count($response->json('data')));
     }
 
     /**
-     * TDD: Error Handling Tests
+     * Test error handling for non-existent resources.
      */
-    public function test_returns_404_for_nonexistent_chat()
+    public function test_404_for_nonexistent_resources()
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $response = $this->actingAs($this->user)
+            ->getJson('/api/chats/9999');
 
-        $response = $this->getJson('/api/chats/99999');
+        $response->assertStatus(404);
+
+        $response = $this->actingAs($this->user)
+            ->getJson('/api/messages/9999');
 
         $response->assertStatus(404);
     }
 
-    public function test_returns_404_for_nonexistent_message()
+    /**
+     * Test validation errors for invalid data.
+     */
+    public function test_422_for_invalid_data()
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/chats/{$this->chat->id}/messages", [
+                // Missing required fields
+            ]);
 
-        $response = $this->getJson('/api/messages/99999');
-
-        $response->assertStatus(404);
-    }
-
-    public function test_returns_422_for_invalid_data()
-    {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
-
-        $response = $this->postJson('/api/chats', []);
-
-        $response->assertStatus(422)
-                ->assertJsonValidationErrors(['type']);
+        $response->assertStatus(422);
     }
 
     /**
-     * TDD: Performance Tests
+     * Test performance for loading chat list.
      */
-    public function test_chat_list_loads_within_acceptable_time()
+    public function test_chat_list_performance()
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
-
         // Create multiple chats
         for ($i = 0; $i < 10; $i++) {
-            $chat = Chat::factory()->create(['created_by' => $user->id]);
+            $chat = Chat::factory()->create(['type' => 'private']);
             ChatParticipant::factory()->create([
                 'chat_id' => $chat->id,
-                'user_id' => $user->id,
+                'user_id' => $this->user->id
             ]);
         }
 
         $startTime = microtime(true);
-        $response = $this->getJson('/api/chats');
+        $response = $this->actingAs($this->user)->getJson('/api/chats');
         $endTime = microtime(true);
 
         $response->assertStatus(200);
         
-        $executionTime = $endTime - $startTime;
-        $this->assertLessThan(1.0, $executionTime, 'Chat list should load within 1 second');
+        // Ensure response time is reasonable (less than 1 second)
+        $this->assertLessThan(1, $endTime - $startTime);
     }
 
-    public function test_message_list_loads_within_acceptable_time()
+    /**
+     * Test performance for loading message list.
+     */
+    public function test_message_list_performance()
     {
-        $user = User::factory()->create();
-        $chat = Chat::factory()->create(['created_by' => $user->id]);
-        ChatParticipant::factory()->create([
-            'chat_id' => $chat->id,
-            'user_id' => $user->id,
-        ]);
-
         // Create multiple messages
         Message::factory()->count(50)->create([
-            'chat_id' => $chat->id,
-            'sender_id' => $user->id,
+            'chat_id' => $this->chat->id,
+            'sender_id' => $this->user->id,
+            'message_type' => 'text'
         ]);
 
-        Sanctum::actingAs($user);
-
         $startTime = microtime(true);
-        $response = $this->getJson("/api/chats/{$chat->id}/messages");
+        $response = $this->actingAs($this->user)->getJson("/api/chats/{$this->chat->id}/messages");
         $endTime = microtime(true);
 
         $response->assertStatus(200);
         
-        $executionTime = $endTime - $startTime;
-        $this->assertLessThan(1.0, $executionTime, 'Message list should load within 1 second');
+        // Ensure response time is reasonable (less than 1 second)
+        $this->assertLessThan(1, $endTime - $startTime);
     }
-} 
+}

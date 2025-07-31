@@ -45,9 +45,12 @@ class AuthController extends Controller
         ]);
 
         if (!Auth::attempt($request->only('email', 'password'))) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+            return response()->json([
+                'message' => 'The provided credentials are incorrect.',
+                'errors' => [
+                    'email' => ['The provided credentials are incorrect.']
+                ]
+            ], 422);
         }
 
         $user = User::where('email', $request->email)->first();
@@ -68,13 +71,32 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User not authenticated'], 401);
+        }
+        
         $user->update([
             'is_online' => false,
             'last_seen' => now(),
         ]);
 
-        $request->user()->currentAccessToken()->delete();
-
+        // Get the token value from the request
+        $bearerToken = $request->bearerToken();
+        
+        if ($bearerToken) {
+            // Delete all tokens for this user to ensure complete logout
+            $user->tokens()->delete();
+            
+            // Clear any authentication cache
+            cache()->forget('sanctum.token.' . md5($bearerToken));
+        }
+        
+        // Force logout and clear authentication state
+        auth()->guard('sanctum')->forgetUser();
+        
+        // Force refresh all authentication guards
+        app('auth')->forgetGuards();
+        
         return response()->json([
             'message' => 'Logged out successfully',
         ]);
@@ -82,9 +104,13 @@ class AuthController extends Controller
 
     public function profile(Request $request)
     {
-        return response()->json([
-            'user' => $request->user(),
-        ]);
+        $user = $request->user();
+        
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+        
+        return response()->json(['user' => $user]);
     }
 
     public function updateProfile(Request $request)

@@ -260,17 +260,55 @@ class MessageController extends Controller
         ->orderBy('created_at', 'desc')
         ->paginate(10);
 
-        return response()->json($messages);
+        return response()->json([
+            'data' => $messages->items(),
+            'messages' => $messages->items(),
+            'meta' => [
+                'current_page' => $messages->currentPage(),
+                'last_page' => $messages->lastPage(),
+                'total' => $messages->total()
+            ]
+        ]);
     }
 
     public function getReplies(Request $request, Message $message): JsonResponse
     {
+        // Check if message is deleted
+        if ($message->is_deleted || $message->deleted_for_all) {
+            return response()->json(['message' => 'Message not found'], 404);
+        }
+
         if (!$message->chat->participants()->where('user_id', auth()->id())->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $replies = $message->replies()->with(['user'])->paginate(10);
+        $replies = $message->replies()
+            ->with(['user'])
+            ->where('is_deleted', false)
+            ->where('deleted_for_all', false)
+            ->orderBy('created_at', 'asc')
+            ->paginate(10);
 
         return response()->json($replies);
+    }
+
+    /**
+     * Show a specific message.
+     */
+    public function show(Message $message): JsonResponse
+    {
+        // Check if user is a participant in the chat
+        if (!$message->chat->participants()->where('user_id', auth()->id())->exists()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Check if message is deleted for this user
+        if ($message->is_deleted || $message->deleted_for_all) {
+            return response()->json(['message' => 'Message not found'], 404);
+        }
+
+        $message->load(['user', 'chat']);
+
+        return response()->json(['data' => $message]);
     }
 }

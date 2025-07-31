@@ -58,12 +58,13 @@ Route::delete('/chats/{chat}/participants/{user}', [ChatParticipantController::c
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chats/{chat}/messages', [MessageController::class, 'index']);
     Route::post('/chats/{chat}/messages', [MessageController::class, 'store']);
+    Route::get('/messages/search', [App\Http\Controllers\Api\MessageSearchController::class, 'search']);
+    Route::get('/messages/{message}', [MessageController::class, 'show']);
     Route::delete('/messages/{message}', [MessageController::class, 'destroy']);
     Route::post('/messages/{message}/forward', [MessageController::class, 'forward']);
     Route::post('/messages/forward', [MessageController::class, 'forwardMultiple']);
     Route::post('/messages/{message}/reply', [MessageController::class, 'reply']);
     Route::get('/messages/{message}/replies', [MessageController::class, 'getReplies']);
-    Route::get('/messages/search', [MessageController::class, 'search']);
     
     // Typing indicator routes
     Route::post('/chats/{chat}/typing/start', [TypingController::class, 'start']);

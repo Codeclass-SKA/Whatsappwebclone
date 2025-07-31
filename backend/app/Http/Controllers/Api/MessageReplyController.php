@@ -17,28 +17,39 @@ class MessageReplyController extends Controller
     {
         $user = Auth::user();
         
+        // Check if message is deleted
+        if ($message->is_deleted || $message->deleted_for_all) {
+            return response()->json(['message' => 'Message not found'], 404);
+        }
+
         // Check if user is participant of the chat
         if (!$message->chat->participants()->where('user_id', $user->id)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $replies = $message->replies()->with('user')->get()->map(function ($reply) {
-            return [
-                'id' => $reply->id,
-                'content' => $reply->content,
-                'sender_id' => $reply->sender_id,
-                'chat_id' => $reply->chat_id,
-                'message_type' => $reply->message_type,
-                'reply_to_id' => $reply->reply_to_id,
-                'user' => [
-                    'id' => $reply->user->id,
-                    'name' => $reply->user->name,
-                    'avatar' => $reply->user->avatar
-                ],
-                'created_at' => $reply->created_at,
-                'updated_at' => $reply->updated_at
-            ];
-        });
+        $replies = $message->replies()
+            ->with('user')
+            ->where('is_deleted', false)
+            ->where('deleted_for_all', false)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($reply) {
+                return [
+                    'id' => $reply->id,
+                    'content' => $reply->content,
+                    'sender_id' => $reply->sender_id,
+                    'chat_id' => $reply->chat_id,
+                    'message_type' => $reply->message_type,
+                    'reply_to_id' => $reply->reply_to_id,
+                    'user' => [
+                        'id' => $reply->user->id,
+                        'name' => $reply->user->name,
+                        'avatar' => $reply->user->avatar
+                    ],
+                    'created_at' => $reply->created_at,
+                    'updated_at' => $reply->updated_at
+                ];
+            });
 
         return response()->json([
             'data' => $replies

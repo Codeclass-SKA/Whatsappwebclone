@@ -78,6 +78,7 @@ class MessageSearchController extends Controller
 
         return response()->json([
             'data' => $formattedMessages,
+            'messages' => $formattedMessages,
             'current_page' => $messages->currentPage(),
             'last_page' => $messages->lastPage(),
             'per_page' => $messages->perPage(),
