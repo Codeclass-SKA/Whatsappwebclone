@@ -37,7 +37,13 @@ const Chat: React.FC = () => {
 
   const handleNewMessage = (newMessage: Message) => {
     if (newMessage.chat_id === selectedChat?.id) {
-      setMessages(prev => [...prev, newMessage]);
+      setMessages(prev => {
+        const updatedMessages = [...prev, newMessage];
+        // Ensure chronological order when new messages arrive
+        return updatedMessages.sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      });
       setChats(prev => prev.map(chat => 
         chat.id === newMessage.chat_id 
           ? { 
@@ -162,7 +168,11 @@ const Chat: React.FC = () => {
     try {
       setLoading(true);
       const messageList = await chatService.getMessages(chatId);
-      setMessages(messageList);
+      // Sort messages by created_at timestamp to ensure chronological order
+      const sortedMessages = messageList.sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      setMessages(sortedMessages);
     } catch (error) {
       console.error('[Chat] Failed to load messages:', error);
     } finally {

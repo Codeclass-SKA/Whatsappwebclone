@@ -10,10 +10,77 @@ use App\Events\ChatParticipantsUpdated;
 use App\Events\UserJoinedChat;
 use App\Events\UserLeftChat;
 
+/**
+ * @OA\Schema(
+ *     schema="AddParticipantsRequest",
+ *     type="object",
+ *     required={"user_ids"},
+ *     @OA\Property(
+ *         property="user_ids",
+ *         type="array",
+ *         @OA\Items(type="integer"),
+ *         example={2, 3, 4},
+ *         description="Array of user IDs to add to the chat"
+ *     )
+ * )
+ *
+ * @OA\Schema(
+ *     schema="RemoveParticipantsRequest",
+ *     type="object",
+ *     required={"user_ids"},
+ *     @OA\Property(
+ *         property="user_ids",
+ *         type="array",
+ *         @OA\Items(type="integer"),
+ *         example={2, 3},
+ *         description="Array of user IDs to remove from the chat"
+ *     )
+ * )
+ */
+
 class ChatParticipantController extends Controller
 {
     /**
-     * Add participants to a chat.
+     * @OA\Post(
+     *     path="/api/chats/{chat}/participants",
+     *     summary="Add participants to a chat",
+     *     tags={"Chat Participants"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="chat",
+     *         in="path",
+     *         required=true,
+     *         description="Chat ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/AddParticipantsRequest")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Participants added successfully",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="message", type="string", example="Participants added successfully"),
+     *             @OA\Property(
+     *                 property="participants",
+     *                 type="array",
+     *                 @OA\Items(ref="#/components/schemas/User")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant of the chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error - Invalid user IDs",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function store(Request $request, Chat $chat): JsonResponse
     {
@@ -65,7 +132,46 @@ class ChatParticipantController extends Controller
     }
 
     /**
-     * Remove participants from a chat.
+     * @OA\Delete(
+     *     path="/api/chats/{chat}/participants",
+     *     summary="Remove multiple participants from a chat",
+     *     tags={"Chat Participants"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="chat",
+     *         in="path",
+     *         required=true,
+     *         description="Chat ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/RemoveParticipantsRequest")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Participants removed successfully",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="message", type="string", example="Participants removed successfully"),
+     *             @OA\Property(
+     *                 property="participants",
+     *                 type="array",
+     *                 @OA\Items(ref="#/components/schemas/User")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant of the chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error - Invalid user IDs",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(Request $request, Chat $chat): JsonResponse
     {
@@ -107,7 +213,49 @@ class ChatParticipantController extends Controller
     }
 
     /**
-     * Remove a single participant from a chat.
+     * @OA\Delete(
+     *     path="/api/chats/{chat}/participants/{user}",
+     *     summary="Remove a single participant from a chat",
+     *     tags={"Chat Participants"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="chat",
+     *         in="path",
+     *         required=true,
+     *         description="Chat ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="user",
+     *         in="path",
+     *         required=true,
+     *         description="User ID of participant to remove",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Participant removed successfully",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="message", type="string", example="Participant removed successfully"),
+     *             @OA\Property(
+     *                 property="participants",
+     *                 type="array",
+     *                 @OA\Items(ref="#/components/schemas/User")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant of the chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="User is not a participant of this chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function removeParticipant(Request $request, Chat $chat, User $user): JsonResponse
     {

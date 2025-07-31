@@ -314,4 +314,48 @@ describe('MessageList Component', () => {
       expect(screen.getByText('Hello, how are you?')).toBeTruthy();
     });
   });
-}); 
+
+  describe('TDD: Duplicate Key Issue', () => {
+    it('should handle duplicate message IDs without React key warnings', () => {
+      // Create messages with duplicate IDs to reproduce the issue
+      const duplicateMessage1 = {
+        ...mockMessage,
+        id: 36,
+        content: 'First message with ID 36',
+      };
+      
+      const duplicateMessage2 = {
+        ...mockMessageFromOther,
+        id: 36, // Same ID as above
+        content: 'Second message with ID 36',
+      };
+
+      const messagesWithDuplicates = [
+        duplicateMessage1,
+        duplicateMessage2,
+      ];
+
+      // This should render without throwing React key warnings
+      render(<MessageList {...defaultProps} messages={messagesWithDuplicates} />);
+
+      // Both messages should be rendered
+      expect(screen.getByText('First message with ID 36')).toBeTruthy();
+      expect(screen.getByText('Second message with ID 36')).toBeTruthy();
+    });
+
+    it('should generate unique keys for messages with same ID', () => {
+      const messagesWithSameId = [
+        { ...mockMessage, id: 100, content: 'Message 1' },
+        { ...mockMessageFromOther, id: 100, content: 'Message 2' },
+        { ...mockMessage, id: 100, content: 'Message 3' },
+      ];
+
+      render(<MessageList {...defaultProps} messages={messagesWithSameId} />);
+
+      // All three messages should be rendered despite having the same ID
+      expect(screen.getByText('Message 1')).toBeTruthy();
+      expect(screen.getByText('Message 2')).toBeTruthy();
+      expect(screen.getByText('Message 3')).toBeTruthy();
+    });
+  });
+});

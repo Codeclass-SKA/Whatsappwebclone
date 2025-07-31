@@ -39,6 +39,15 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * @OA\Schema(
+ *     schema="FileUploadRequest",
+ *     type="object",
+ *     required={"file", "type", "chat_id"},
+ *     @OA\Property(property="file", type="string", format="binary", description="The file to upload (max 5MB)"),
+ *     @OA\Property(property="type", type="string", enum={"image", "document", "audio"}, description="Type of file being uploaded"),
+ *     @OA\Property(property="chat_id", type="integer", description="ID of the chat to upload the file to")
+ * )
+ *
+ * @OA\Schema(
  *     schema="FileUploadResponse",
  *     type="object",
  *     @OA\Property(property="id", type="integer", example=1),
@@ -92,7 +101,7 @@ class FileUploadController extends Controller
      *     @OA\Response(
      *         response=422,
      *         description="Validation error - Invalid file type, size, or format",
-     *         @OA\JsonContent(ref="#/components/schemas/ValidationErrorResponse")
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
      *     )
      * )
      */
@@ -174,10 +183,7 @@ class FileUploadController extends Controller
      *         @OA\Header(
      *             header="Content-Disposition",
      *             description="Attachment with filename",
-     *             @OA\Schema(type="string", example="attachment; filename=\"document.pdf\"")
-     *         ),
-     *         @OA\MediaType(
-     *             mediaType="application/octet-stream"
+     *             @OA\Schema(type="string", example="attachment; filename='document.pdf'")
      *         )
      *     ),
      *     @OA\Response(

@@ -12,41 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
-/**
- * @OA\Schema(
- *     schema="ReactionCreateRequest",
- *     type="object",
- *     required={"emoji"},
- *     @OA\Property(property="emoji", type="string", maxLength=10, example="👍", description="The emoji reaction to add")
- * )
- */
 
-/**
- * @OA\Schema(
- *     schema="ReactionUpdateRequest",
- *     type="object",
- *     required={"emoji"},
- *     @OA\Property(property="emoji", type="string", maxLength=10, example="❤️", description="The new emoji reaction")
- * )
- */
-
-/**
- * @OA\Schema(
- *     schema="ReactionResponse",
- *     type="object",
- *     @OA\Property(property="id", type="integer", example=1),
- *     @OA\Property(property="message_id", type="integer", example=123),
- *     @OA\Property(property="user_id", type="integer", example=456),
- *     @OA\Property(property="emoji", type="string", example="👍"),
- *     @OA\Property(property="user", type="object",
- *         @OA\Property(property="id", type="integer", example=456),
- *         @OA\Property(property="name", type="string", example="John Doe"),
- *         @OA\Property(property="avatar", type="string", example="https://example.com/avatar.jpg")
- *     ),
- *     @OA\Property(property="created_at", type="string", format="date-time", example="2024-01-01T12:00:00Z"),
- *     @OA\Property(property="updated_at", type="string", format="date-time", example="2024-01-01T12:00:00Z")
- * )
- */
 
 class MessageReactionController extends Controller
 {
@@ -85,7 +51,7 @@ class MessageReactionController extends Controller
      *     @OA\Response(
      *         response=422,
      *         description="Validation error - Invalid emoji or duplicate reaction",
-     *         @OA\JsonContent(ref="#/components/schemas/ValidationErrorResponse")
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
      *     )
      * )
      */
@@ -256,7 +222,7 @@ class MessageReactionController extends Controller
      *     @OA\Response(
      *         response=422,
      *         description="Validation error - Invalid emoji",
-     *         @OA\JsonContent(ref="#/components/schemas/ValidationErrorResponse")
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
      *     )
      * )
      */

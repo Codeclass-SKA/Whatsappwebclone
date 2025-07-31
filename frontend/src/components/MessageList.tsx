@@ -36,7 +36,12 @@ const MessageList: React.FC<MessageListProps> = ({
   const [activeMessageId, setActiveMessageId] = useState<number | null>(null);
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior });
+    } else if (containerRef.current) {
+      // Fallback to scroll container directly
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
   };
 
   const isNearBottomThreshold = 100; // pixels from bottom
@@ -90,9 +95,13 @@ const MessageList: React.FC<MessageListProps> = ({
   }, []);
 
   useEffect(() => {
-    // Auto-scroll to bottom on first load or when user is near bottom
+    // Auto-scroll to bottom on first load or when new messages arrive
     if (messages.length > 0) {
-      if (isNearBottom || autoScroll) {
+      // Always scroll to bottom when messages change and user is near bottom
+      if (isNearBottom) {
+        scrollToBottom('smooth');
+      } else if (autoScroll) {
+        // Also scroll if autoScroll is explicitly enabled
         scrollToBottom('smooth');
       } else {
         // Show scroll button if user is not near bottom
@@ -100,6 +109,17 @@ const MessageList: React.FC<MessageListProps> = ({
       }
     }
   }, [messages, isNearBottom, autoScroll]);
+
+  // Auto-scroll on initial load and when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Small delay to ensure DOM is updated
+      const timer = setTimeout(() => {
+        scrollToBottom('auto');
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [messages]);
 
   // Load reactions for all messages with debouncing and caching
   useEffect(() => {
@@ -242,14 +262,14 @@ const MessageList: React.FC<MessageListProps> = ({
         className="h-full overflow-y-auto p-4 space-y-4 scroll-smooth"
         onScroll={handleScroll}
       >
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const isOwn = isOwnMessage(message);
           const messageReactions = reactions[message.id] || [];
           const isActive = activeMessageId === message.id;
           
           return (
             <div
-              key={message.id}
+              key={`${message.id}-${index}`}
               className={`flex ${isOwn ? 'justify-end' : 'justify-start'} message-container`}
             >
               <div className="relative group">
