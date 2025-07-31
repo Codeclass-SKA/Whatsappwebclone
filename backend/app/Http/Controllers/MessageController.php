@@ -8,10 +8,34 @@ use App\Events\MessageSent;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @OA\Schema(
+ *     schema="MessageDeleteRequest",
+ *     type="object",
+ *     required={"delete_type"},
+ *     @OA\Property(property="delete_type", type="string", enum={"for_me", "for_everyone"}, example="for_everyone")
+ * )
+ *
+ * @OA\Schema(
+ *     schema="MessageForwardRequest",
+ *     type="object",
+ *     required={"target_chat_id"},
+ *     @OA\Property(property="target_chat_id", type="integer", example=2)
+ * )
+ *
+ * @OA\Schema(
+ *     schema="MessageForwardMultipleRequest",
+ *     type="object",
+ *     required={"message_ids", "target_chat_id"},
+ *     @OA\Property(property="message_ids", type="array", items=@OA\Items(type="integer"), example={1, 2, 3}),
+ *     @OA\Property(property="target_chat_id", type="integer", example=2)
+ * )
+ */
+
 class MessageController extends Controller
 {
     /**
-     * Get messages for a chat.
+     * Get messages for a chat (legacy endpoint - use ChatController instead)
      */
     public function index(Request $request, Chat $chat): JsonResponse
     {
@@ -29,7 +53,7 @@ class MessageController extends Controller
             })
             ->with(['user', 'reactions.user', 'replies.user'])
             ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->paginate($request->get('per_page', 20));
 
         return response()->json([
             'data' => $messages->items(),
@@ -51,7 +75,7 @@ class MessageController extends Controller
     }
 
     /**
-     * Store a new message.
+     * Store a new message (legacy endpoint - use ChatController instead)
      */
     public function store(Request $request, Chat $chat): JsonResponse
     {
@@ -82,7 +106,40 @@ class MessageController extends Controller
     }
 
     /**
-     * Delete a message.
+     * @OA\Delete(
+     *     path="/messages/{message}",
+     *     summary="Delete a message",
+     *     tags={"Messages"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="message",
+     *         in="path",
+     *         required=true,
+     *         description="Message ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/MessageDeleteRequest")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Message deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Message deleted successfully")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - Only message sender can delete",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(Request $request, Message $message): JsonResponse
     {
@@ -113,7 +170,44 @@ class MessageController extends Controller
     }
 
     /**
-     * Forward a message.
+     * @OA\Post(
+     *     path="/messages/{message}/forward",
+     *     summary="Forward a message to another chat",
+     *     tags={"Messages"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="message",
+     *         in="path",
+     *         required=true,
+     *         description="Message ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/MessageForwardRequest")
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Message forwarded successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Message"),
+     *             @OA\Property(property="original_sender", type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="name", type="string", example="John Doe")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant in the target chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function forward(Request $request, Message $message): JsonResponse
     {
@@ -155,7 +249,34 @@ class MessageController extends Controller
     }
 
     /**
-     * Forward multiple messages.
+     * @OA\Post(
+     *     path="/messages/forward-multiple",
+     *     summary="Forward multiple messages to another chat",
+     *     tags={"Messages"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/MessageForwardMultipleRequest")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Messages forwarded successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", items=@OA\Items(ref="#/components/schemas/Message")),
+     *             @OA\Property(property="message", type="string", example="Messages forwarded successfully")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant in the target chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function forwardMultiple(Request $request): JsonResponse
     {
@@ -271,6 +392,39 @@ class MessageController extends Controller
         ]);
     }
 
+    /**
+     * @OA\Get(
+     *     path="/messages/{message}/replies",
+     *     summary="Get replies for a message",
+     *     tags={"Messages"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="message",
+     *         in="path",
+     *         required=true,
+     *         description="Message ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         description="Page number for pagination",
+     *         @OA\Schema(type="integer", default=1)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Replies retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", items=@OA\Items(ref="#/components/schemas/Message"))
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Message not found or deleted",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
+     */
     public function getReplies(Request $request, Message $message): JsonResponse
     {
         // Check if message is deleted

@@ -12,10 +12,78 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @OA\Schema(
+ *     schema="Chat",
+ *     type="object",
+ *     required={"id", "type", "created_by"},
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="type", type="string", enum={"private", "group"}, example="private"),
+ *     @OA\Property(property="name", type="string", nullable=true, example="Team Discussion"),
+ *     @OA\Property(property="created_by", type="integer", example=1),
+ *     @OA\Property(property="avatar", type="string", nullable=true, example="https://example.com/chat-avatar.jpg"),
+ *     @OA\Property(property="is_muted", type="boolean", example=false),
+ *     @OA\Property(property="muted_until", type="string", format="date-time", nullable=true),
+ *     @OA\Property(property="is_pinned", type="boolean", example=false),
+ *     @OA\Property(property="last_message", type="object", nullable=true),
+ *     @OA\Property(property="participants", type="array", items=@OA\Items(ref="#/components/schemas/User")),
+ *     @OA\Property(property="created_at", type="string", format="date-time", example="2024-01-01T00:00:00Z"),
+ *     @OA\Property(property="updated_at", type="string", format="date-time", example="2024-01-01T00:00:00Z")
+ * )
+ *
+ *     @OA\Schema(
+ *         schema="ChatCreateRequest",
+ *         type="object",
+ *         required={"type", "participant_ids"},
+ *         @OA\Property(property="type", type="string", enum={"private", "group"}, example="private"),
+ *         @OA\Property(property="participant_ids", type="array", items=@OA\Items(type="integer"), example={2, 3}),
+ *         @OA\Property(property="name", type="string", nullable=true, example="Team Discussion")
+ *     )
+ *
+ *     @OA\Schema(
+ *         schema="MessageCreateRequest",
+ *         type="object",
+ *         required={"content", "type"},
+ *         @OA\Property(property="content", type="string", example="Hello, how are you?"),
+ *         @OA\Property(property="type", type="string", enum={"text", "image", "file", "audio"}, example="text"),
+ *         @OA\Property(property="file_url", type="string", format="url", nullable=true, example="https://example.com/file.jpg"),
+ *         @OA\Property(property="reply_to_id", type="integer", nullable=true, example=null)
+ *     )
+ *
+ * @OA\Schema(
+ *     schema="Message",
+ *     type="object",
+ *     required={"id", "content", "sender_id", "chat_id", "message_type"},
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="content", type="string", example="Hello, how are you?"),
+ *     @OA\Property(property="sender_id", type="integer", example=1),
+ *     @OA\Property(property="chat_id", type="integer", example=1),
+ *     @OA\Property(property="message_type", type="string", enum={"text", "image", "file", "video", "audio"}, example="text"),
+ *     @OA\Property(property="reply_to_id", type="integer", nullable=true, example=null),
+ *     @OA\Property(property="forwarded_from", type="integer", nullable=true, example=null),
+ *     @OA\Property(property="user", ref="#/components/schemas/User"),
+ *     @OA\Property(property="reactions", type="array", items=@OA\Items(type="object")),
+ *     @OA\Property(property="created_at", type="string", format="date-time", example="2024-01-01T00:00:00Z"),
+ *     @OA\Property(property="updated_at", type="string", format="date-time", example="2024-01-01T00:00:00Z")
+ * )
+ */
+
 class ChatController extends Controller
 {
     /**
-     * Get all chats for the authenticated user.
+     * @OA\Get(
+     *     path="/chats",
+     *     summary="Get all chats for the authenticated user",
+     *     tags={"Chats"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Chats retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", items=@OA\Items(ref="#/components/schemas/Chat"))
+     *         )
+     *     )
+     * )
      */
     public function index(): JsonResponse
     {
@@ -74,7 +142,28 @@ class ChatController extends Controller
     }
 
     /**
-     * Create a new chat.
+     * @OA\Post(
+     *     path="/chats",
+     *     summary="Create a new chat",
+     *     tags={"Chats"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/ChatCreateRequest")
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Chat created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Chat")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function store(Request $request): JsonResponse
     {
@@ -113,7 +202,31 @@ class ChatController extends Controller
     }
 
     /**
-     * Get a specific chat.
+     * @OA\Get(
+     *     path="/chats/{chat}",
+     *     summary="Get a specific chat",
+     *     tags={"Chats"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="chat",
+     *         in="path",
+     *         required=true,
+     *         description="Chat ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Chat retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Chat")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Chat not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function show(Chat $chat): JsonResponse
     {
@@ -129,9 +242,49 @@ class ChatController extends Controller
     }
 
     /**
-     * Get messages for a specific chat.
+     * @OA\Get(
+     *     path="/chats/{chat}/messages",
+     *     summary="Get messages for a specific chat",
+     *     tags={"Chats"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="chat",
+     *         in="path",
+     *         required=true,
+     *         description="Chat ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         description="Page number for pagination",
+     *         @OA\Schema(type="integer", default=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Number of items per page",
+     *         @OA\Schema(type="integer", default=20)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Messages retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", items=@OA\Items(ref="#/components/schemas/Message")),
+     *             @OA\Property(property="current_page", type="integer", example=1),
+     *             @OA\Property(property="per_page", type="integer", example=20),
+     *             @OA\Property(property="total", type="integer", example=100),
+     *             @OA\Property(property="last_page", type="integer", example=5)
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Chat not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
-    public function messages(Chat $chat): JsonResponse
+    public function messages(Chat $chat, Request $request): JsonResponse
     {
         $user = Auth::user();
         

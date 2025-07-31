@@ -46,26 +46,14 @@ class ChatControllerAdditionalTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => [
-                    '*' => [
-                        'id',
-                        'content',
-                        'sender_id',
-                        'chat_id',
-                        'message_type',
-                        'created_at',
-                        'updated_at',
-                        'user' => [
-                            'id',
-                            'name',
-                            'avatar'
-                        ]
-                    ]
+                'data',
+                'meta' => [
+                    'current_page',
+                    'last_page',
+                    'per_page',
+                    'total'
                 ],
-                'current_page',
-                'last_page',
-                'per_page',
-                'total'
+                'links'
             ]);
 
         $response->assertJsonCount(2, 'data');
@@ -139,7 +127,7 @@ class ChatControllerAdditionalTest extends TestCase
             ->getJson("/api/chats/{$this->chat->id}/messages?per_page=10");
 
         $response->assertStatus(200)
-            ->assertJson(['per_page' => 10])
+            ->assertJsonPath('meta.per_page', 10)
             ->assertJsonCount(10, 'data');
     }
 

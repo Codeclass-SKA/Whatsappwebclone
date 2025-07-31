@@ -12,10 +12,89 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @OA\Schema(
+ *     schema="FileUploadRequest",
+ *     type="object",
+ *     required={"file", "type", "chat_id"},
+ *     @OA\Property(
+ *         property="file",
+ *         type="string",
+ *         format="binary",
+ *         description="The file to upload (max 5MB)"
+ *     ),
+ *     @OA\Property(
+ *         property="type",
+ *         type="string",
+ *         enum={"image", "document", "audio"},
+ *         description="Type of file being uploaded"
+ *     ),
+ *     @OA\Property(
+ *         property="chat_id",
+ *         type="integer",
+ *         description="ID of the chat where the file will be sent"
+ *     )
+ * )
+ */
+
+/**
+ * @OA\Schema(
+ *     schema="FileUploadResponse",
+ *     type="object",
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="content", type="string", example="document.pdf"),
+ *     @OA\Property(property="user_id", type="integer", example=123),
+ *     @OA\Property(property="chat_id", type="integer", example=456),
+ *     @OA\Property(property="message_type", type="string", enum={"image", "document", "audio"}, example="document"),
+ *     @OA\Property(property="file_url", type="string", format="uri", example="https://example.com/storage/uploads/documents/document.pdf"),
+ *     @OA\Property(property="file_name", type="string", example="document.pdf"),
+ *     @OA\Property(property="file_size", type="integer", example=1024000),
+ *     @OA\Property(property="user", type="object",
+ *         @OA\Property(property="id", type="integer", example=123),
+ *         @OA\Property(property="name", type="string", example="John Doe"),
+ *         @OA\Property(property="avatar", type="string", example="https://example.com/avatar.jpg")
+ *     ),
+ *     @OA\Property(property="created_at", type="string", format="date-time", example="2024-01-01T12:00:00Z"),
+ *     @OA\Property(property="updated_at", type="string", format="date-time", example="2024-01-01T12:00:00Z")
+ * )
+ */
+
 class FileUploadController extends Controller
 {
     /**
      * Upload a file to a chat.
+     *
+     * @OA\Post(
+     *     path="/api/files/upload",
+     *     summary="Upload a file to a chat",
+     *     tags={"Files"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(ref="#/components/schemas/FileUploadRequest")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="File uploaded successfully",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="data", ref="#/components/schemas/FileUploadResponse")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant of the chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error - Invalid file type, size, or format",
+     *         @OA\JsonContent(ref="#/components/schemas/ValidationErrorResponse")
+     *     )
+     * )
      */
     public function upload(Request $request): JsonResponse
     {
@@ -76,6 +155,42 @@ class FileUploadController extends Controller
 
     /**
      * Download a file from a message.
+     *
+     * @OA\Get(
+     *     path="/api/files/download/{message}",
+     *     summary="Download a file from a message",
+     *     tags={"Files"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="message",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer"),
+     *         description="Message ID containing the file"
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="File downloaded successfully",
+     *         @OA\Header(
+     *             header="Content-Disposition",
+     *             description="Attachment with filename",
+     *             @OA\Schema(type="string", example="attachment; filename=\"document.pdf\"")
+     *         ),
+     *         @OA\MediaType(
+     *             mediaType="application/octet-stream"
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant of the chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="File not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function download(Message $message): mixed
     {
@@ -124,4 +239,4 @@ class FileUploadController extends Controller
             ]);
         }
     }
-} 
+}

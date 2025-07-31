@@ -12,10 +12,82 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @OA\Schema(
+ *     schema="ReactionCreateRequest",
+ *     type="object",
+ *     required={"emoji"},
+ *     @OA\Property(property="emoji", type="string", maxLength=10, example="👍", description="The emoji reaction to add")
+ * )
+ */
+
+/**
+ * @OA\Schema(
+ *     schema="ReactionUpdateRequest",
+ *     type="object",
+ *     required={"emoji"},
+ *     @OA\Property(property="emoji", type="string", maxLength=10, example="❤️", description="The new emoji reaction")
+ * )
+ */
+
+/**
+ * @OA\Schema(
+ *     schema="ReactionResponse",
+ *     type="object",
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="message_id", type="integer", example=123),
+ *     @OA\Property(property="user_id", type="integer", example=456),
+ *     @OA\Property(property="emoji", type="string", example="👍"),
+ *     @OA\Property(property="user", type="object",
+ *         @OA\Property(property="id", type="integer", example=456),
+ *         @OA\Property(property="name", type="string", example="John Doe"),
+ *         @OA\Property(property="avatar", type="string", example="https://example.com/avatar.jpg")
+ *     ),
+ *     @OA\Property(property="created_at", type="string", format="date-time", example="2024-01-01T12:00:00Z"),
+ *     @OA\Property(property="updated_at", type="string", format="date-time", example="2024-01-01T12:00:00Z")
+ * )
+ */
+
 class MessageReactionController extends Controller
 {
     /**
      * Add a reaction to a message.
+     *
+     * @OA\Post(
+     *     path="/api/messages/{message}/reactions",
+     *     summary="Add a reaction to a message",
+     *     tags={"Reactions"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="message",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer"),
+     *         description="Message ID"
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/ReactionCreateRequest")
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Reaction added successfully",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="data", ref="#/components/schemas/ReactionResponse")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant of the chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error - Invalid emoji or duplicate reaction",
+     *         @OA\JsonContent(ref="#/components/schemas/ValidationErrorResponse")
+     *     )
+     * )
      */
     public function store(Request $request, Message $message): JsonResponse
     {
@@ -80,6 +152,37 @@ class MessageReactionController extends Controller
 
     /**
      * Get reactions for a message.
+     *
+     * @OA\Get(
+     *     path="/api/messages/{message}/reactions",
+     *     summary="Get reactions for a message",
+     *     tags={"Reactions"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="message",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer"),
+     *         description="Message ID"
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reactions retrieved successfully",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="array",
+     *                 @OA\Items(ref="#/components/schemas/ReactionResponse")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant of the chat",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function index(Message $message): JsonResponse
     {
@@ -113,6 +216,49 @@ class MessageReactionController extends Controller
 
     /**
      * Update a reaction.
+     *
+     * @OA\Put(
+     *     path="/api/messages/{message}/reactions/{reaction}",
+     *     summary="Update a reaction",
+     *     tags={"Reactions"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="message",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer"),
+     *         description="Message ID"
+     *     ),
+     *     @OA\Parameter(
+     *         name="reaction",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer"),
+     *         description="Reaction ID"
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/ReactionUpdateRequest")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reaction updated successfully",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="data", ref="#/components/schemas/ReactionResponse")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant of the chat or doesn't own the reaction",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error - Invalid emoji",
+     *         @OA\JsonContent(ref="#/components/schemas/ValidationErrorResponse")
+     *     )
+     * )
      */
     public function update(Request $request, Message $message, MessageReaction $reaction): JsonResponse
     {
@@ -164,6 +310,40 @@ class MessageReactionController extends Controller
 
     /**
      * Remove a reaction.
+     *
+     * @OA\Delete(
+     *     path="/api/messages/{message}/reactions/{reaction}",
+     *     summary="Remove a reaction",
+     *     tags={"Reactions"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="message",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer"),
+     *         description="Message ID"
+     *     ),
+     *     @OA\Parameter(
+     *         name="reaction",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer"),
+     *         description="Reaction ID"
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reaction removed successfully",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="message", type="string", example="Reaction removed successfully")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Unauthorized - User is not a participant of the chat or doesn't own the reaction",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(Message $message, MessageReaction $reaction): JsonResponse
     {
